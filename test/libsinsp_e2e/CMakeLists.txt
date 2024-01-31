@@ -29,6 +29,7 @@ configure_file (
 )
 
 add_executable(libsinsp_e2e_tests
+    auid.cpp
     event_capture.cpp
     main.cpp
     subprocess.cpp
