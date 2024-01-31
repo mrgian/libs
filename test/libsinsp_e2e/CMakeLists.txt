@@ -34,6 +34,8 @@ add_executable(libsinsp_e2e_tests
     main.cpp
     subprocess.cpp
     sys_call_test.cpp
+    thread_state.cpp
+    threadinfo.cpp
 )
 
 if(BUILD_BPF)
