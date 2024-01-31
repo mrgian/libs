@@ -34,6 +34,8 @@ add_executable(tests
     main.cpp
     subprocess.cpp
     sys_call_test.cpp
+    thread_state.cpp
+    threadinfo.cpp
 )
 
 if(BUILD_BPF)
