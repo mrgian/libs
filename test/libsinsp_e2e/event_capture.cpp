@@ -31,6 +31,11 @@ std::string event_capture::m_engine_string = KMOD_ENGINE;
 std::string event_capture::m_engine_path = "";
 unsigned long event_capture::m_buffer_dim = DEFAULT_DRIVER_BUFFER_BYTES_DIM;
 
+concurrent_object_handle<sinsp> event_capture::get_inspector_handle()
+{
+ 	return {m_inspector, m_inspector_mutex};
+}
+
 void event_capture::capture()
 {
 	m_inspector = new sinsp();
@@ -214,8 +219,10 @@ void event_capture::re_read_dump_file()
 	}
 }
 
-bool event_capture::handle_event(sinsp_evt* event)
+bool event_capture::
+handle_event(sinsp_evt* event)
 {
+	std::unique_lock<std::mutex> object_state_lock(m_object_state_mutex);
 	if (::testing::Test::HasNonfatalFailure())
 	{
 		return true;
