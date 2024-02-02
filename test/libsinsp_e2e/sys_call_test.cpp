@@ -54,6 +54,43 @@ limitations under the License.
 
 using namespace std;
 
+uint32_t get_server_address()
+{
+	struct ifaddrs* interfaceArray = NULL;
+	struct ifaddrs* tempIfAddr = NULL;
+	int rc = 0;
+	uint32_t address = 0;
+
+	rc = getifaddrs(&interfaceArray);
+	if (rc != 0)
+	{
+		return -1;
+	}
+	for (tempIfAddr = interfaceArray; tempIfAddr != NULL; tempIfAddr = tempIfAddr->ifa_next)
+	{
+		if (tempIfAddr->ifa_addr == NULL)
+		{
+			// "eql" interface like on EC2
+			continue;
+		}
+
+		if (tempIfAddr->ifa_addr->sa_family != AF_INET)
+		{
+			continue;
+		}
+
+		if (0 == strcmp("lo", tempIfAddr->ifa_name))
+		{
+			continue;
+		}
+		address = *(uint32_t*)&((struct sockaddr_in*)tempIfAddr->ifa_addr)->sin_addr;
+		break;
+	}
+	freeifaddrs(interfaceArray);
+
+	return address;
+}
+
 TEST_F(sys_call_test, stat)
 {
 	int callnum = 0;

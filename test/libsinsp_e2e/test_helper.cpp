@@ -20,6 +20,9 @@
 #include <unordered_map>
 #include <vector>
 
+#define HELPER_32
+#include "tcp_client_server.h"
+
 #include <poll.h>
 #include <signal.h>
 
@@ -660,6 +663,31 @@ void cri_container_sleep_lzcat(const vector<string>& args)
 const unordered_map<string, function<void(const vector<string>&)>> func_map = {
     {"proc_mgmt", proc_mgmt},
     {"mmap_test", mmap_test},
+	{"tcp_client",
+	 [](const vector<string>& args)
+	 {
+		 auto iot = static_cast<iotype>(stoi(args.at(1)));
+		 tcp_client client(inet_addr(args.at(0).c_str()),
+						   iot,
+						   args.at(2),
+						   str_to_bool(args.at(3)),
+						   stoi(args.at(4)),
+						   str_to_bool(args.at(5)));
+		 client.run();
+	 }},
+	{"tcp_server",
+	 [](const vector<string>& args)
+	 {
+		 auto iot = static_cast<iotype>(stoi(args.at(0)));
+
+	     tcp_server server(iot,
+	                       str_to_bool(args.at(1)),
+	                       str_to_bool(args.at(2)),
+	                       str_to_bool(args.at(3)),
+	                       stoi(args.at(4)),
+	                       str_to_bool(args.at(5)));
+	     server.run();
+     }},
     {"pread_pwrite", pread_pwrite},
     {"preadv_pwritev", preadv_pwritev},
     {"quotactl_ko", quotactl_ko},
