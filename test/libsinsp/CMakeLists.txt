@@ -32,10 +32,13 @@ add_executable(tests
     auid.cpp
     event_capture.cpp
     main.cpp
+    paths.cpp
     subprocess.cpp
     sys_call_test.cpp
     thread_state.cpp
+    tcp_client_server.cpp
     threadinfo.cpp
+    udp_client_server.cpp
 )
 
 if(BUILD_BPF)
