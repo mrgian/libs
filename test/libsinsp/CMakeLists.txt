@@ -30,6 +30,8 @@ configure_file (
 
 add_executable(tests
     auid.cpp
+    container.cpp
+    docker_utils.cpp
     event_capture.cpp
     main.cpp
     paths.cpp

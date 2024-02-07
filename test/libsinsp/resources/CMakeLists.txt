@@ -6,6 +6,9 @@ install(
     COMPONENT tests
 )
 
+add_subdirectory(health_dockerfiles)
+add_subdirectory(large_container_dockerfiles)
+
 execute_process(
     COMMAND "uname" "-m"
     OUTPUT_VARIABLE ARCH
