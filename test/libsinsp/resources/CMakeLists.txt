@@ -9,6 +9,21 @@ install(
 add_subdirectory(health_dockerfiles)
 add_subdirectory(large_container_dockerfiles)
 
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/ipv6_traces/curl_google.scap 
+    ${CMAKE_CURRENT_BINARY_DIR}/ipv6_traces/curl_google.scap COPYONLY
+)
+
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/ipv6_traces/single_ipv6_conn.scap 
+    ${CMAKE_CURRENT_BINARY_DIR}/ipv6_traces/single_ipv6_conn.scap COPYONLY
+)
+
+configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/ipv6_traces/test_ipv6_client.scap
+    ${CMAKE_CURRENT_BINARY_DIR}/ipv6_traces/test_ipv6_client.scap COPYONLY
+)
+
 execute_process(
     COMMAND "uname" "-m"
     OUTPUT_VARIABLE ARCH

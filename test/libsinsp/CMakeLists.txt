@@ -33,6 +33,7 @@ add_executable(tests
     container.cpp
     docker_utils.cpp
     event_capture.cpp
+    ipv6.cpp
     main.cpp
     paths.cpp
     subprocess.cpp
