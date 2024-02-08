@@ -36,6 +36,7 @@ add_executable(tests
     ipv6.cpp
     main.cpp
     paths.cpp
+    process.cpp
     subprocess.cpp
     sys_call_test.cpp
     thread_state.cpp
