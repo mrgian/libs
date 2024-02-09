@@ -30,6 +30,8 @@ configure_file (
 
 add_executable(libsinsp_e2e_tests
     auid.cpp
+    container.cpp
+    docker_utils.cpp
     event_capture.cpp
     main.cpp
     paths.cpp
