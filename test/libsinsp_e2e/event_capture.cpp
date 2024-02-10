@@ -25,8 +25,6 @@ limitations under the License.
 #include <libsinsp/sinsp_cycledumper.h>
 #include <unistd.h>
 
-#define ONE_SECOND_MS 1000
-
 std::string event_capture::m_engine_string = KMOD_ENGINE;
 std::string event_capture::m_engine_path = "";
 unsigned long event_capture::m_buffer_dim = DEFAULT_DRIVER_BUFFER_BYTES_DIM;
@@ -38,66 +36,70 @@ concurrent_object_handle<sinsp> event_capture::get_inspector_handle()
 
 void event_capture::capture()
 {
-	m_inspector = new sinsp();
-
-	m_inspector->m_thread_manager->set_max_thread_table_size(m_max_thread_table_size);
-	m_inspector->m_thread_timeout_ns = m_thread_timeout_ns;
-	m_inspector->set_auto_threads_purging_interval_s(m_inactive_thread_scan_time_ns);
-	m_inspector->set_auto_threads_purging(false);
-
-	m_inspector->set_get_procs_cpu_from_driver(true);
-
-	m_param.m_inspector = m_inspector;
-
-	m_before_open(m_inspector);
-
-	ASSERT_FALSE(m_inspector->is_capture());
-	ASSERT_FALSE(m_inspector->is_live());
-	ASSERT_FALSE(m_inspector->is_nodriver());
-
 	std::unique_ptr<sinsp_cycledumper> dumper;
+	{  // Begin init synchronized section
+		std::scoped_lock init_lock(m_inspector_mutex, m_object_state_mutex);
 
-	try
-	{
-		if (m_mode == SINSP_MODE_NODRIVER)
+		m_inspector = new sinsp();
+
+		m_inspector->m_thread_manager->set_max_thread_table_size(m_max_thread_table_size);
+		m_inspector->m_thread_timeout_ns = m_thread_timeout_ns;
+		m_inspector->set_auto_threads_purging_interval_s(m_inactive_thread_scan_time_ns);
+		m_inspector->set_auto_threads_purging(false);
+
+		m_inspector->set_get_procs_cpu_from_driver(true);
+
+		m_param.m_inspector = m_inspector;
+
+		m_before_open(m_inspector);
+
+		ASSERT_FALSE(m_inspector->is_capture());
+		ASSERT_FALSE(m_inspector->is_live());
+		ASSERT_FALSE(m_inspector->is_nodriver());
+
+		try
 		{
-			m_inspector->open_nodriver();
+			if (m_mode == SINSP_MODE_NODRIVER)
+			{
+				m_inspector->open_nodriver();
+			}
+			else
+			{
+				open_engine(event_capture::get_engine(), {});
+			}
 		}
-		else
+		catch (sinsp_exception& e)
 		{
-			open_engine(event_capture::get_engine(), {});
+			m_start_failed = true;
+			m_start_failure_message =
+				"couldn't open inspector (maybe driver hasn't been loaded yet?) err=" +
+				m_inspector->getlasterr() + " exception=" + e.what();
+			{
+				std::unique_lock<std::mutex> lock(m_mutex);
+				m_capture_started = true;
+				m_condition_started.notify_one();
+			}
+			delete m_inspector;
+			return;
 		}
-	}
-	catch (sinsp_exception& e)
-	{
-		m_start_failed = true;
-		m_start_failure_message =
-		    "couldn't open inspector (maybe driver hasn't been loaded yet?) err=" +
-		    m_inspector->getlasterr() + " exception=" + e.what();
+
+		const ::testing::TestInfo* const test_info =
+		    ::testing::UnitTest::GetInstance()->current_test_info();
+
+		m_inspector->set_debug_mode(true);
+		m_inspector->set_hostname_and_port_resolution_mode(false);
+
+		m_inspector->start_capture();
+
+		if (m_mode != SINSP_MODE_NODRIVER)
 		{
-			std::unique_lock<std::mutex> lock(m_mutex);
-			m_capture_started = true;
-			m_condition_started.notify_one();
+			m_dump_filename = std::string(LIBSINSP_TEST_CAPTURES_PATH) + test_info->test_case_name() + "_" +
+				test_info->name() + ".scap";
+			dumper = std::make_unique<sinsp_cycledumper>(m_inspector, m_dump_filename.c_str(),
+														 0, 0, 0, 0, true);
 		}
-		delete m_inspector;
-		return;
-	}
+	}  // End init synchronized section
 
-	const ::testing::TestInfo* const test_info =
-	    ::testing::UnitTest::GetInstance()->current_test_info();
-
-	m_inspector->set_debug_mode(true);
-	m_inspector->set_hostname_and_port_resolution_mode(false);
-
-	m_inspector->start_capture();
-
-	if (m_mode != SINSP_MODE_NODRIVER)
-	{
-		m_dump_filename = std::string(LIBSINSP_TEST_CAPTURES_PATH) + test_info->test_case_name() + "_" +
-		                  test_info->name() + ".scap";
-		dumper = std::make_unique<sinsp_cycledumper>(m_inspector, m_dump_filename.c_str(),
-								  0, 0, 0, 0, true);
-	}
 
 	bool signaled_start = false;
 	sinsp_evt* event;
@@ -151,22 +153,29 @@ void event_capture::capture()
 			dumper->dump(event);
 			result = handle_event(event);
 		}
-		while (SCAP_SUCCESS == m_inspector->next(&event))
 		{
-			// just consume the events
+			std::scoped_lock inspector_next_lock(m_inspector_mutex);
+			while (SCAP_SUCCESS == m_inspector->next(&event))
+			{
+				// just consume the remaining events
+				dumper->dump(event);
+			}
 		}
 	}
 
-	m_before_close(m_inspector);
+	{  // Begin teardown synchronized section
+		std::scoped_lock teardown_lock(m_inspector_mutex, m_object_state_mutex);
+		m_before_close(m_inspector);
 
-	m_inspector->stop_capture();
+		m_inspector->stop_capture();
 
-	delete m_inspector;
-	{
-		std::unique_lock<std::mutex> lock(m_mutex);
+		delete m_inspector;
+
 		m_capture_stopped = true;
 		m_condition_stopped.notify_one();
-	}
+
+	}  // End teardown synchronized section
+
 }
 
 void event_capture::stop_capture()
