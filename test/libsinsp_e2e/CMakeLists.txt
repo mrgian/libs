@@ -32,6 +32,7 @@ add_executable(libsinsp_e2e_tests
     auid.cpp
     container.cpp
     container_cgroup.cpp
+    container_image_splitting.cpp
     docker_utils.cpp
     event_capture.cpp
     main.cpp
