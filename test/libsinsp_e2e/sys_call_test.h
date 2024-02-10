@@ -40,7 +40,8 @@ class proc_started_filter
 			if (!m_child_ready && evt->get_type() == PPME_SYSCALL_WRITE_X)
 			{
 				auto buffer = evt->get_param_value_str("data", false);
-				if (buffer.find("STARTED") != std::string::npos)
+				if(buffer.find("SERVER UP") != std::string::npos ||
+				   buffer.find("STARTED") != std::string::npos)
 				{
 					m_child_ready = true;
 				}

@@ -206,11 +206,11 @@ private:
 
 	std::mutex m_inspector_mutex;     // Always lock first
 	std::mutex m_object_state_mutex;  // Always lock second
-	std::mutex m_mutex;
     std::condition_variable m_condition_started;
     std::condition_variable m_condition_stopped;
-    bool m_capture_started;
-    bool m_capture_stopped;
+	bool m_capture_started;
+	bool m_capture_stopped;
+	std::atomic<bool> m_start_failed;
 
 	event_filter_t m_filter;
 	captured_event_callback_t m_captured_event_callback;
@@ -220,7 +220,6 @@ private:
 	uint32_t m_max_thread_table_size;
 	uint64_t m_thread_timeout_ns;
 	uint64_t m_inactive_thread_scan_time_ns;
-	std::atomic<bool> m_start_failed;
 	std::string m_start_failure_message;
 	std::string m_dump_filename;
 	callback_param m_param;

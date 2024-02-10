@@ -75,7 +75,7 @@ void event_capture::capture()
 				"couldn't open inspector (maybe driver hasn't been loaded yet?) err=" +
 				m_inspector->getlasterr() + " exception=" + e.what();
 			{
-				std::unique_lock<std::mutex> lock(m_mutex);
+				//std::unique_lock<std::mutex> lock(m_mutex);
 				m_capture_started = true;
 				m_condition_started.notify_one();
 			}
@@ -115,7 +115,7 @@ void event_capture::capture()
 		{
 			signaled_start = true;
 			{
-				std::unique_lock<std::mutex> lock(m_mutex);
+				std::unique_lock<std::mutex> lock(m_object_state_mutex);
 				m_capture_started = true;
 				m_condition_started.notify_one();
 			}
@@ -185,7 +185,7 @@ void event_capture::stop_capture()
 		m_inspector->stop_capture();
 	}
 	{
-		std::unique_lock<std::mutex> lock(m_mutex);
+		std::scoped_lock init_lock(m_inspector_mutex, m_object_state_mutex);
 		m_capture_stopped = true;
 		m_condition_stopped.notify_one();
 	}
@@ -193,7 +193,7 @@ void event_capture::stop_capture()
 
 void event_capture::wait_for_capture_start()
 {
-	std::unique_lock<std::mutex> lock(m_mutex);
+	std::unique_lock<std::mutex> lock(m_object_state_mutex);
 	m_condition_started.wait(lock, [this]() {
 		return m_capture_started;
 	});
@@ -201,7 +201,7 @@ void event_capture::wait_for_capture_start()
 
 void event_capture::wait_for_capture_stop()
 {
-	std::unique_lock<std::mutex> lock(m_mutex);
+	std::unique_lock<std::mutex> lock(m_object_state_mutex);
 	m_condition_stopped.wait(lock, [this]() {
 		return m_capture_stopped;
 	});

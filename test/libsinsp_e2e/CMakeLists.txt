@@ -87,16 +87,20 @@ if("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
     endif()
 endif("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
 
-install(
-    DIRECTORY
-    DESTINATION ${CMAKE_INSTALL_PREFIX}/test/captures
-    COMPONENT libsinsp_e2e_tests
-)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/resources/captures/)
+#file(
+#    COPY ${CMAKE_CURRENT_LIST_DIR}/resources/captures/
+#    DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/resources/
+#)
 
-install(
-    DIRECTORY
-    DESTINATION ${CMAKE_INSTALL_PREFIX}/test/resources/run
-    COMPONENT libsinsp_e2e_tests
+#file(
+#    COPY resources/run/
+#    DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/resources/
+#)
+
+file(
+    COPY ${CMAKE_CURRENT_LIST_DIR}/resources/docker
+    DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/resources/
 )
 
 install(

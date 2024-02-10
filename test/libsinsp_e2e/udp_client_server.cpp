@@ -711,7 +711,8 @@ TEST_F(sys_call_test, udp_client_server_sendmsg)
 
 			EXPECT_EQ(PAYLOAD, e->get_param_value_str("data"));
 
-			EXPECT_EQ(udps.server_ip_address(), e->m_fdinfo->m_sockinfo.m_ipv4info.m_fields.m_sip);
+			EXPECT_EQ(udps.server_ip_address(),
+			          e->get_fd_info()->m_sockinfo.m_ipv4info.m_fields.m_sip);
 		}
 		else if (type == PPME_SOCKET_SENDMSG_E)
 		{
@@ -774,7 +775,8 @@ TEST_F(sys_call_test, udp_client_server_sendmsg_2buf)
 
 			EXPECT_EQ(PAYLOAD, e->get_param_value_str("data"));
 
-			EXPECT_EQ(udps.server_ip_address(), e->m_fdinfo->m_sockinfo.m_ipv4info.m_fields.m_sip);
+			EXPECT_EQ(udps.server_ip_address(),
+			          e->get_fd_info()->m_sockinfo.m_ipv4info.m_fields.m_sip);
 		}
 		else if (type == PPME_SOCKET_SENDMSG_E)
 		{

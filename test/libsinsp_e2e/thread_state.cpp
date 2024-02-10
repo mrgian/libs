@@ -63,7 +63,7 @@ protected:
 			int64_t ppid = (i == 0 ? 1 : m_threads[i - 1]->m_tid);
 			sinsp_threadinfo* tinfo = m_threads[i];
 			tinfo->m_lastevent_fd = 0;
-			tinfo->m_parent_loop_detected = false;
+			tinfo->set_parent_loop_detected(false);
 			tinfo->m_ptid = ppid;
 		}
 	}
@@ -125,7 +125,7 @@ protected:
 	void verify(uint32_t test_idx, bool loop_detected, vector<uint32_t>& visited)
 	{
 		SCOPED_TRACE("test_idx=" + to_string(test_idx));
-		EXPECT_EQ(m_threads[test_idx]->m_parent_loop_detected, loop_detected);
+		EXPECT_EQ(m_threads[test_idx]->parent_loop_detected(), loop_detected);
 		for (uint32_t i = 0; i < m_max; i++)
 		{
 			SCOPED_TRACE("i=" + to_string(i));

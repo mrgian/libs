@@ -161,9 +161,9 @@ void runtest(iotype iot,
 		{
 			string tuple = evt->get_param_value_str("tuple");
 
-			EXPECT_NE((sinsp_fdinfo*)NULL, evt->m_fdinfo);
+			EXPECT_NE((sinsp_fdinfo*)NULL, evt->get_fd_info());
 
-			if (evt->m_fdinfo->m_type != SCAP_FD_IPV4_SOCK)
+			if (evt->get_fd_info()->m_type != SCAP_FD_IPV4_SOCK)
 			{
 				//
 				// Skip non-tcp sockets. Python opens unix sockets
@@ -258,7 +258,7 @@ void runtest(iotype iot,
 		     evt->get_type() == PPME_SOCKET_SENDTO_E || evt->get_type() == PPME_SOCKET_RECVFROM_E ||
 		     evt->get_type() == PPME_SYSCALL_READ_E || evt->get_type() == PPME_SYSCALL_WRITE_E ||
 		     evt->get_type() == PPME_SYSCALL_READV_E || evt->get_type() == PPME_SYSCALL_WRITEV_E) &&
-		    evt->m_fdinfo->m_type == SCAP_FD_IPV4_SOCK)
+		    evt->get_fd_info()->m_type == SCAP_FD_IPV4_SOCK)
 		{
 			if (evt->get_type() == PPME_SOCKET_RECVFROM_E)
 			{
@@ -291,7 +291,7 @@ void runtest(iotype iot,
 		          evt->get_type() == PPME_SYSCALL_WRITE_X ||
 		          evt->get_type() == PPME_SOCKET_SENDTO_X ||
 		          evt->get_type() == PPME_SOCKET_SEND_X) &&
-		         evt->m_fdinfo->m_type == SCAP_FD_IPV4_SOCK)
+				 evt->get_fd_info()->m_type == SCAP_FD_IPV4_SOCK)
 		{
 			if (evt->get_type() == PPME_SOCKET_RECVFROM_X)
 			{

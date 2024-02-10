@@ -54,7 +54,7 @@ TEST_F(sys_call_test, container_cgroups)
 			sinsp_threadinfo sinsp_tinfo(nullptr);
 			char buf[100];
 
-			sinsp_threadinfo* tinfo = param.m_evt->m_tinfo;
+			sinsp_threadinfo* tinfo = param.m_evt->get_thread_info();
 			ASSERT_TRUE(tinfo != NULL);
 			const auto& cgroups = tinfo->cgroups();
 			ASSERT_TRUE(cgroups.size() > 0);
@@ -161,7 +161,7 @@ TEST_F(sys_call_test, container_clone_nspid)
 		sinsp_evt* e = param.m_evt;
 		if (e->get_type() == PPME_SYSCALL_CLONE_20_X)
 		{
-			sinsp_threadinfo* tinfo = param.m_evt->m_tinfo;
+			sinsp_threadinfo* tinfo = param.m_evt->get_thread_info();
 			ASSERT_TRUE(tinfo != NULL);
 			ASSERT_TRUE(tinfo->m_vtid == 1);
 			ASSERT_TRUE(tinfo->m_vpid == 1);
@@ -212,7 +212,7 @@ TEST_F(sys_call_test, container_clone_nspid_ioctl)
 	//
 	captured_event_callback_t callback = [&](const callback_param& param)
 	{
-		sinsp_threadinfo* tinfo = param.m_evt->m_tinfo;
+		sinsp_threadinfo* tinfo = param.m_evt->get_thread_info();
 		if (tinfo)
 		{
 			EXPECT_EQ(1, tinfo->m_vtid);
@@ -239,7 +239,7 @@ TEST_F(sys_call_test, container_docker_netns_ioctl)
 
 	event_filter_t filter = [&](sinsp_evt* evt)
 	{
-		sinsp_threadinfo* tinfo = evt->m_tinfo;
+		sinsp_threadinfo* tinfo = evt->get_thread_info();
 		if (tinfo)
 		{
 			return !tinfo->m_container_id.empty();
@@ -362,7 +362,7 @@ static void run_container_docker_test(bool fork_after_container_start)
 
 	captured_event_callback_t callback = [&](const callback_param& param)
 	{
-		sinsp_threadinfo* tinfo = param.m_evt->m_tinfo;
+		sinsp_threadinfo* tinfo = param.m_evt->get_thread_info();
 		ASSERT_TRUE(tinfo != NULL);
 		ASSERT_TRUE(tinfo->m_vtid != tinfo->m_tid);
 		ASSERT_TRUE(tinfo->m_vpid != tinfo->m_pid);
@@ -614,7 +614,7 @@ static void update_container_state(sinsp* inspector,
                                    container_state& cstate,
                                    sinsp_threadinfo::command_category expected_cat)
 {
-	sinsp_threadinfo* tinfo = evt->m_tinfo;
+	sinsp_threadinfo* tinfo = evt->get_thread_info();
 
 	if (tinfo == NULL)
 	{
@@ -685,7 +685,7 @@ static void update_container_state(sinsp* inspector,
 
 		// Commandline for the health check of the healthcheck containers,
 		// in direct exec and shell formats.
-		if (cmdline == "sysdig-ut-healt" || cmdline == "sh -c /bin/sysdig-ut-health-check")
+		if (cmdline == "ut-health-check" || cmdline == "sh -c /bin/ut-health-check")
 		{
 			cstate.healthcheck_seen = true;
 
@@ -714,15 +714,16 @@ static void healthcheck_helper(
 	dutils_kill_container("cont_health_ut");
 	dutils_kill_image("cont_health_ut_img");
 
-	std::string build_cmdline =
-	    string("cd test/libsinsp/resources/health_dockerfiles && docker build -t cont_health_ut_img -f ") +
+	std::string build_cmdline = string("cd "
+									   LIBSINSP_TEST_RESOURCES_PATH
+									   "/docker/health_dockerfiles && docker build -t cont_health_ut_img -f ") +
 	    dockerfile + " . > /dev/null 2>&1";
 
 	ASSERT_TRUE(system(build_cmdline.c_str()) == 0);
 
 	event_filter_t filter = [&](sinsp_evt* evt)
 	{
-		sinsp_threadinfo* tinfo = evt->m_tinfo;
+		sinsp_threadinfo* tinfo = evt->get_thread_info();
 
 		return (strcmp(evt->get_name(), "execve") == 0 && evt->get_direction() == SCAP_ED_OUT &&
 		        tinfo->m_container_id != "");
@@ -840,7 +841,9 @@ TEST_F(sys_call_test, docker_container_large_json)
 	dutils_kill_container("large_container_ut");
 	dutils_kill_image("large_container_ut_img");
 
-	ASSERT_TRUE(system("cd test/libsinsp/resources/large_container_dockerfiles && docker build -t "
+	ASSERT_TRUE(system("cd "
+					   LIBSINSP_TEST_RESOURCES_PATH
+					   "/docker/large_container_dockerfiles && docker build -t "
 	                   "large_container_ut_img -f Dockerfile.long_labels . > /dev/null") == 0);
 
 	event_filter_t filter = [&](sinsp_evt* evt) {
@@ -867,7 +870,7 @@ TEST_F(sys_call_test, docker_container_large_json)
 	{
 		saw_container_evt = true;
 
-		sinsp_threadinfo* tinfo = param.m_evt->m_tinfo;
+		sinsp_threadinfo* tinfo = param.m_evt->get_thread_info();
 		ASSERT_TRUE(tinfo != NULL);
 
 		const auto container_info =
