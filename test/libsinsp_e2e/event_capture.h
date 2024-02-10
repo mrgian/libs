@@ -133,65 +133,13 @@ public:
 	static void run(run_callback_t run_function,
 	                captured_event_callback_t captured_event_callback,
 	                event_filter_t filter,
-	                before_open_t before_open)
-	{
-		run(run_function,
-		    captured_event_callback,
-		    filter,
-		    131072,
-		    (uint64_t)60 * 1000 * 1000 * 1000,
-		    (uint64_t)60 * 1000 * 1000 * 1000,
-		    SINSP_MODE_LIVE,
-		    before_open);
-	}
-
-	static void run(run_callback_t run_function,
-	                captured_event_callback_t captured_event_callback,
-	                event_filter_t filter,
-	                before_open_t before_open,
-	                before_close_t before_close)
-	{
-		run(run_function,
-		    captured_event_callback,
-		    filter,
-		    131072,
-		    (uint64_t)60 * 1000 * 1000 * 1000,
-		    (uint64_t)60 * 1000 * 1000 * 1000,
-		    SINSP_MODE_LIVE,
-		    before_open,
-		    before_close);
-	}
-
-	static void run(run_callback_t run_function, captured_event_callback_t captured_event_callback)
-	{
-		event_filter_t no_filter = [](sinsp_evt*) { return true; };
-		run(run_function, captured_event_callback, no_filter);
-	}
-
-	static void run_nodriver(run_callback_t run_function,
-	                         captured_event_callback_t captured_event_callback)
-	{
-		event_filter_t no_filter = [](sinsp_evt*) { return true; };
-
-		run(run_function,
-		    captured_event_callback,
-		    no_filter,
-		    131072,
-		    (uint64_t)60 * 1000 * 1000 * 1000,
-		    (uint64_t)60 * 1000 * 1000 * 1000,
-		    SINSP_MODE_NODRIVER);
-	}
-
-	static void run(run_callback_t run_function,
-	                captured_event_callback_t captured_event_callback,
-	                event_filter_t filter,
+	                before_open_t before_open = event_capture::do_nothing,
+	                before_close_t before_close = event_capture::do_nothing,
+	                capture_continue_t capture_continue = event_capture::always_continue,
 	                uint32_t max_thread_table_size = 131072,
 	                uint64_t thread_timeout_ns = (uint64_t)60 * 1000 * 1000 * 1000,
 	                uint64_t inactive_thread_scan_time_ns = (uint64_t)60 * 1000 * 1000 * 1000,
 	                sinsp_mode_t mode = SINSP_MODE_LIVE,
-	                before_open_t before_open = event_capture::do_nothing,
-	                before_close_t before_close = event_capture::do_nothing,
-	                capture_continue_t capture_continue = event_capture::always_continue,
 	                uint64_t max_timeouts = 3)
 	{
 		event_capture capturing;
