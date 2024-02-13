@@ -35,6 +35,7 @@ add_executable(libsinsp_e2e_tests
     container_image_splitting.cpp
     docker_utils.cpp
     event_capture.cpp
+    ipv6.cpp
     main.cpp
     paths.cpp
     subprocess.cpp
@@ -102,6 +103,11 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/resources/captures/)
 
 file(
     COPY ${CMAKE_CURRENT_LIST_DIR}/resources/docker
+    DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/resources/
+)
+
+file(
+    COPY ${CMAKE_CURRENT_LIST_DIR}/resources/ipv6_traces
     DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/resources/
 )
 
