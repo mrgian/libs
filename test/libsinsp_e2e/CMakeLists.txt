@@ -38,6 +38,7 @@ add_executable(libsinsp_e2e_tests
     ipv6.cpp
     main.cpp
     paths.cpp
+    process.cpp
     subprocess.cpp
     sys_call_test.cpp
     thread_state.cpp
