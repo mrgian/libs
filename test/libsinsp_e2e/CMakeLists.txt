@@ -40,6 +40,7 @@ add_executable(libsinsp_e2e_tests
     paths.cpp
     process.cpp
     subprocess.cpp
+    suppress_events.cpp
     sys_call_test.cpp
     thread_state.cpp
     tcp_client_server.cpp
