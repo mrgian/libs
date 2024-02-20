@@ -28,3 +28,7 @@ limitations under the License.
 #define LIBSINSP_TEST_BPF_PROBE_PATH "${CMAKE_BINARY_DIR}/driver/bpf/probe.o"
 
 #define LIBSINSP_TEST_CAPTURES_PATH "${CMAKE_BINARY_DIR}/test/libsinsp_e2e/captures"
+
+#define LIBSINSP_TEST_RELATIVE_PATH "./test/libsinsp_e2e"
+
+#define LIBSINSP_TEST_BUILD_DIR "${CMAKE_BINARY_DIR}"

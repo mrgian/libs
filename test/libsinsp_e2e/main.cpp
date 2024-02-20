@@ -218,12 +218,21 @@ int main(int argc, char** argv)
 {
 	testing::InitGoogleTest(&argc, argv);
 
+	std::string test_relative_path = LIBSINSP_TEST_RELATIVE_PATH;
+	std::string build_dir = LIBSINSP_TEST_BUILD_DIR;
+
+	if(!std::filesystem::exists(test_relative_path))
+	{
+		std::cerr << "Please execute tests from the build directory (" << build_dir << ")" << std::endl;
+		return EXIT_FAILURE;
+	}
+
 	std::string captures_dir = LIBSINSP_TEST_CAPTURES_PATH;
 
 	if(!std::filesystem::exists(captures_dir))
 	{
 		if (!std::filesystem::create_directory(captures_dir)) {
-			std::cerr << "Failed to create captures directory." << std::endl;;
+			std::cerr << "Failed to create captures directory." << std::endl;
 			return EXIT_FAILURE;
 		}
 	}
