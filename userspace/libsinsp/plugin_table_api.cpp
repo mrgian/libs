@@ -49,6 +49,8 @@ limitations under the License.
 			_X(std::string, str); break; \
 		case ss_plugin_state_type::SS_PLUGIN_ST_BOOL: \
 			_X(bool, b); break; \
+		case ss_plugin_state_type::SS_PLUGIN_ST_RAWPTR: \
+			_X(void*, rawptr); break; \
 		default: \
 			throw sinsp_exception("can't convert plugin state type to typeinfo: " + std::to_string(_kt)); \
 	} \
@@ -78,6 +80,8 @@ static inline ss_plugin_state_type typeinfo_to_state_type(const libsinsp::state:
 			return ss_plugin_state_type::SS_PLUGIN_ST_STRING;
 		case libsinsp::state::typeinfo::index_t::PT_BOOL:
 			return ss_plugin_state_type::SS_PLUGIN_ST_BOOL;
+		case libsinsp::state::typeinfo::index_t::PT_RAWPTR:
+			return ss_plugin_state_type::SS_PLUGIN_ST_RAWPTR;
 		default:
 			throw sinsp_exception("can't convert typeinfo to plugin state type: " + std::string(i.name()));
 	}
@@ -665,6 +669,11 @@ template<> void plugin_table_wrapper<std::string>::get_key_as_data(const std::st
 template<> void plugin_table_wrapper<bool>::get_key_as_data(const bool& key, ss_plugin_state_data& out)
 {
 	out.b = key;
+}
+
+template<> void plugin_table_wrapper<void*>::get_key_as_data(void* const& key, ss_plugin_state_data& out)
+{
+	out.rawptr = key;
 }
 
 // wraps instances of libsinsp::state::table and makes them comply

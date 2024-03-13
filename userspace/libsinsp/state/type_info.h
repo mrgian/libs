@@ -151,6 +151,7 @@ template<> inline typeinfo typeinfo::of<uint16_t>() { return _build<uint16_t>("u
 template<> inline typeinfo typeinfo::of<uint32_t>() { return _build<uint32_t>("uint32", PT_UINT32); }
 template<> inline typeinfo typeinfo::of<uint64_t>() { return _build<uint64_t>("uint64", PT_UINT64); }
 template<> inline typeinfo typeinfo::of<std::string>() { return _build<std::string>("string", PT_CHARBUF); }
+template<> inline typeinfo typeinfo::of<void*>() { return _build<void*>("rawptr", PT_RAWPTR); }
 
 }; // state
 }; // libsinsp

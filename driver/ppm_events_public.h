@@ -2065,7 +2065,8 @@ enum ppm_param_type {
 	PT_ENUMFLAGS8 = 44, /* this is an UINT8, but will be interpreted as an enum flag, ie: contiguous values flag. */
 	PT_ENUMFLAGS16 = 45, /* this is an UINT16, but will be interpreted as an enum flag, ie: contiguous values flag. */
 	PT_ENUMFLAGS32 = 46, /* this is an UINT32, but will be interpreted as an enum flag, ie: contiguous values flag. */
-	PT_MAX = 47 /* array size */
+	PT_RAWPTR = 47, /* this is an UINT64, but will be interpreted as a raw pointer, pointing to an opaque memory area */
+	PT_MAX = 48 /* array size */
 };
 
 enum ppm_print_format {

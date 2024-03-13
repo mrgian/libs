@@ -212,7 +212,8 @@ typedef enum ss_plugin_state_type
 	SS_PLUGIN_ST_UINT32 = 7,
 	SS_PLUGIN_ST_UINT64 = 8,
 	SS_PLUGIN_ST_STRING = 9,
-	SS_PLUGIN_ST_BOOL = 25
+	SS_PLUGIN_ST_BOOL = 25,
+	SS_PLUGIN_ST_RAWPTR = 47
 } ss_plugin_state_type;
 
 // Data representation of entry fields of state tables.
@@ -229,6 +230,7 @@ typedef union ss_plugin_state_data
 	uint64_t u64;
 	const char* str;
 	ss_plugin_bool b;
+	void* rawptr;
 } ss_plugin_state_data;
 
 // Info about a state table.

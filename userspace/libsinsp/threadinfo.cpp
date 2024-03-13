@@ -48,7 +48,8 @@ sinsp_threadinfo::sinsp_threadinfo(sinsp* inspector, std::shared_ptr<libsinsp::s
 	table_entry(dyn_fields),
 	m_cgroups(new cgroups_t),
 	m_inspector(inspector),
-	m_fdtable(inspector)
+	m_fdtable(inspector),
+	m_fdtable_ptr(&m_fdtable)
 {
 	// todo(jasondellaluce): support fields of complex type (structs, vectors...)
 	// todo(jasondellaluce): support currently-hidden fields, and decide
@@ -96,6 +97,7 @@ sinsp_threadinfo::sinsp_threadinfo(sinsp* inspector, std::shared_ptr<libsinsp::s
 	define_static_field(this, m_cwd, "cwd", true);
 	// m_program_hash_scripts
 	// m_category
+	define_static_field(this, m_fdtable_ptr, "fdtable", true);
 
 	init();
 }

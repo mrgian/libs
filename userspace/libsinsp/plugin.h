@@ -250,6 +250,7 @@ private:
 	struct accessed_table_input_deleter { void operator()(ss_plugin_table_input* r); };
 	using owned_table_t = std::unique_ptr<libsinsp::state::base_table>;
 	using accessed_table_t = std::unique_ptr<ss_plugin_table_input, accessed_table_input_deleter>;
+	
 	std::unordered_set<std::string> m_parse_event_sources;
 	libsinsp::events::set<ppm_event_code> m_parse_event_codes;
 	std::shared_ptr<libsinsp::state::table_registry> m_table_registry;

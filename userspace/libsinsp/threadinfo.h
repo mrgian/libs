@@ -672,6 +672,7 @@ private:
 	// parent thread info
 	//
 	sinsp_fdtable m_fdtable; // The fd table of this thread
+	void* m_fdtable_ptr; // used for the state API, just points to m_fdtable
 	std::string m_cwd; // current working directory
 	uint8_t* m_lastevent_data; // Used by some event parsers to store the last enter event
 
