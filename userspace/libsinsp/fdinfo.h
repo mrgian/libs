@@ -111,8 +111,7 @@ public:
 		FLAGS_CONNECTION_FAILED = (1 << 16),
 	};
 
-	sinsp_fdinfo(std::shared_ptr<libsinsp::state::dynamic_struct::field_infos> dyn_fields = nullptr)
-		: table_entry(dyn_fields) { }
+	sinsp_fdinfo(std::shared_ptr<libsinsp::state::dynamic_struct::field_infos> dyn_fields = nullptr);
 	sinsp_fdinfo(sinsp_fdinfo&& o) = default;
 	sinsp_fdinfo& operator=(sinsp_fdinfo&& o) = default;
 	sinsp_fdinfo(const sinsp_fdinfo& o) = default;
@@ -526,7 +525,7 @@ public:
 
 	std::shared_ptr<libsinsp::state::table_entry> get_entry(const int64_t& key) override
 	{
-		return std::shared_ptr<libsinsp::state::table_entry>(find(key));
+		return find_ref(key);
 	}
 
 	std::shared_ptr<libsinsp::state::table_entry> add_entry(const int64_t& key, std::unique_ptr<libsinsp::state::table_entry> entry) override
@@ -542,7 +541,7 @@ public:
 		}
 		entry.release();
 
-		return std::shared_ptr<libsinsp::state::table_entry>(add(key, std::unique_ptr<sinsp_fdinfo>(fdinfo)));
+		return add_ref(key, std::unique_ptr<sinsp_fdinfo>(fdinfo));
 	}
 
 	bool erase_entry(const int64_t& key) override
@@ -552,15 +551,17 @@ public:
 
 private:
 	sinsp* m_inspector;
-	std::unordered_map<int64_t, std::unique_ptr<sinsp_fdinfo>> m_table;
+	std::unordered_map<int64_t, std::shared_ptr<sinsp_fdinfo>> m_table;
 
 	//
 	// Simple fd cache
 	//
 	int64_t m_last_accessed_fd;
-	sinsp_fdinfo *m_last_accessed_fdinfo;
+	std::shared_ptr<sinsp_fdinfo> m_last_accessed_fdinfo;
 	uint64_t m_tid;
 
 private:
 	void lookup_device(sinsp_fdinfo* fdi, uint64_t fd);
+	std::shared_ptr<sinsp_fdinfo> find_ref(int64_t fd);
+	std::shared_ptr<sinsp_fdinfo> add_ref(int64_t fd, std::unique_ptr<sinsp_fdinfo> fdinfo);
 };

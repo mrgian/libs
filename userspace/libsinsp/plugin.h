@@ -31,6 +31,8 @@ limitations under the License.
 #include <libsinsp/state/table_registry.h>
 #include <plugin/plugin_loader.h>
 
+struct sinsp_table_wrapper;
+
 /**
  * @brief An object-oriented representation of a plugin.
  */
@@ -190,7 +192,7 @@ public:
 		return m_fields;
 	}
 
-	bool extract_fields(sinsp_evt* evt, uint32_t num_fields, ss_plugin_extract_field *fields) const;
+	bool extract_fields(sinsp_evt* evt, uint32_t num_fields, ss_plugin_extract_field *fields);
 
 	/** Event Parsing **/
 	inline const std::unordered_set<std::string>& parse_event_sources() const
@@ -200,7 +202,7 @@ public:
 
 	const libsinsp::events::set<ppm_event_code>& parse_event_codes() const;
 
-	bool parse_event(sinsp_evt* evt) const;
+	bool parse_event(sinsp_evt* evt);
 
 	/** Async Events **/
 	inline const std::unordered_set<std::string>& async_event_sources() const
@@ -259,7 +261,8 @@ private:
 	std::unordered_map<std::string, owned_table_t> m_owned_tables;
 	/* contains tables that the plugin accessed at least once */
 	std::unordered_map<std::string, accessed_table_t> m_accessed_tables;
-	std::vector<sinsp_table_wrapper> m_ephemeral_tables;
+	std::vector<accessed_table_t> m_ephemeral_tables;
+	std::vector<std::unique_ptr<libsinsp::state::table_entry>> m_ephemeral_entries;
 
 	/** Async Events **/
 	std::unordered_set<std::string> m_async_event_sources;
@@ -291,6 +294,8 @@ private:
 
 	/** Async events helpers **/
 	static ss_plugin_rc handle_plugin_async_event(ss_plugin_owner_t *o, const ss_plugin_event* evt, char* err);
+
+	void clear_ephemeral_tables();
 
 	friend struct sinsp_table_wrapper;
 };

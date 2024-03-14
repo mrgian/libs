@@ -123,6 +123,12 @@ const char* sinsp_fdinfo::get_typestring() const
 	}
 }
 
+sinsp_fdinfo::sinsp_fdinfo(std::shared_ptr<libsinsp::state::dynamic_struct::field_infos> dyn_fields)
+	: table_entry(dyn_fields) 
+{
+	define_static_field(this, m_name, "name");
+}
+
 std::string sinsp_fdinfo::tostring_clean() const
 {
 	std::string tstr = m_name;
@@ -241,7 +247,7 @@ sinsp_fdtable::sinsp_fdtable(sinsp* inspector)
 	reset_cache();
 }
 
-sinsp_fdinfo* sinsp_fdtable::find(int64_t fd)
+inline std::shared_ptr<sinsp_fdinfo> sinsp_fdtable::find_ref(int64_t fd)
 {
 	//
 	// Try looking up in our simple cache
@@ -276,13 +282,18 @@ sinsp_fdinfo* sinsp_fdtable::find(int64_t fd)
 		}
 
 		m_last_accessed_fd = fd;
-		m_last_accessed_fdinfo = fdit->second.get();
-		lookup_device(m_last_accessed_fdinfo, fd);
+		m_last_accessed_fdinfo = fdit->second;
+		lookup_device(m_last_accessed_fdinfo.get(), fd);
 		return m_last_accessed_fdinfo;
 	}
 }
 
-sinsp_fdinfo* sinsp_fdtable::add(int64_t fd, std::unique_ptr<sinsp_fdinfo> fdinfo)
+sinsp_fdinfo* sinsp_fdtable::find(int64_t fd)
+{
+	return find_ref(fd).get();
+}
+
+inline std::shared_ptr<sinsp_fdinfo> sinsp_fdtable::add_ref(int64_t fd, std::unique_ptr<sinsp_fdinfo> fdinfo)
 {
 	//
 	// Look for the FD in the table
@@ -307,7 +318,7 @@ sinsp_fdinfo* sinsp_fdtable::add(int64_t fd, std::unique_ptr<sinsp_fdinfo> fdinf
 				m_inspector->get_sinsp_stats_v2()->m_n_added_fds++;
 			}
 
-			return m_table.emplace(fd, std::move(fdinfo)).first->second.get();
+			return m_table.emplace(fd, std::move(fdinfo)).first->second;
 		}
 		else
 		{
@@ -352,8 +363,13 @@ sinsp_fdinfo* sinsp_fdtable::add(int64_t fd, std::unique_ptr<sinsp_fdinfo> fdinf
 		//
 		m_last_accessed_fd = -1;
 		it->second = std::move(fdinfo);
-		return it->second.get();
+		return it->second;
 	}
+}
+
+sinsp_fdinfo* sinsp_fdtable::add(int64_t fd, std::unique_ptr<sinsp_fdinfo> fdinfo)
+{
+	return add_ref(fd, std::move(fdinfo)).get();
 }
 
 bool sinsp_fdtable::erase(int64_t fd)
@@ -425,3 +441,4 @@ void sinsp_fdtable::lookup_device(sinsp_fdinfo* fdi, uint64_t fd)
 	}
 #endif // _WIN32
 }
+
