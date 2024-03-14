@@ -21,6 +21,7 @@ limitations under the License.
 #include <libscap/scap.h>
 #include <libsinsp/tuples.h>
 #include <libsinsp/sinsp_public.h>
+#include <libsinsp/state/table.h>
 
 #include <unordered_map>
 #include <vector>
@@ -82,7 +83,7 @@ union sinsp_sockinfo
    you get them by calling \ref sinsp_evt::get_fd_info or
    \ref sinsp_threadinfo::get_fd.
 */
-class SINSP_PUBLIC sinsp_fdinfo
+class SINSP_PUBLIC sinsp_fdinfo : public libsinsp::state::table_entry
 {
 public:
 	/*!
@@ -110,7 +111,8 @@ public:
 		FLAGS_CONNECTION_FAILED = (1 << 16),
 	};
 
-	sinsp_fdinfo() = default;
+	sinsp_fdinfo(std::shared_ptr<libsinsp::state::dynamic_struct::field_infos> dyn_fields = nullptr)
+		: table_entry(dyn_fields) { }
 	sinsp_fdinfo(sinsp_fdinfo&& o) = default;
 	sinsp_fdinfo& operator=(sinsp_fdinfo&& o) = default;
 	sinsp_fdinfo(const sinsp_fdinfo& o) = default;
@@ -439,7 +441,7 @@ public:
 ///////////////////////////////////////////////////////////////////////////////
 // fd info table
 ///////////////////////////////////////////////////////////////////////////////
-class sinsp_fdtable
+class sinsp_fdtable : public libsinsp::state::table<int64_t>
 {
 public:
 	typedef std::function<bool(int64_t, sinsp_fdinfo&)> fdtable_visitor_t;
@@ -498,6 +500,54 @@ public:
 	inline void set_tid(uint64_t v)
 	{
 		m_tid = v;
+	}
+
+	// ---- libsinsp::state::table implementation ----
+
+	size_t entries_count() const override
+	{
+		return size();
+	}
+
+	void clear_entries() override
+	{
+		clear();
+	}
+
+	std::unique_ptr<libsinsp::state::table_entry> new_entry() const
+	{
+		return std::unique_ptr<libsinsp::state::table_entry>(new_fdinfo());
+	};
+
+	bool foreach_entry(std::function<bool(libsinsp::state::table_entry& e)> pred) override
+	{
+		return loop([&pred](int64_t i, sinsp_fdinfo& e){ return pred(e); });
+	}
+
+	std::shared_ptr<libsinsp::state::table_entry> get_entry(const int64_t& key) override
+	{
+		return std::shared_ptr<libsinsp::state::table_entry>(find(key));
+	}
+
+	std::shared_ptr<libsinsp::state::table_entry> add_entry(const int64_t& key, std::unique_ptr<libsinsp::state::table_entry> entry) override
+	{
+		if (!entry)
+		{
+			throw sinsp_exception("null entry added to fd table");
+		}
+		auto fdinfo = dynamic_cast<sinsp_fdinfo*>(entry.get());
+		if (!fdinfo)
+		{
+			throw sinsp_exception("unknown entry type added to fd table");
+		}
+		entry.release();
+
+		return std::shared_ptr<libsinsp::state::table_entry>(add(key, std::unique_ptr<sinsp_fdinfo>(fdinfo)));
+	}
+
+	bool erase_entry(const int64_t& key) override
+	{
+		return erase(key);
 	}
 
 private:

@@ -234,6 +234,7 @@ scap_l4_proto sinsp_fdinfo::get_l4proto() const
 // sinsp_fdtable implementation
 ///////////////////////////////////////////////////////////////////////////////
 sinsp_fdtable::sinsp_fdtable(sinsp* inspector)
+	: table("", sinsp_fdinfo().static_fields())
 {
 	m_tid = 0;
 	m_inspector = inspector;
