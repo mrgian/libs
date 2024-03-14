@@ -902,8 +902,17 @@ struct sinsp_table_wrapper
 
 	static ss_plugin_table_t* get_subtable(ss_plugin_table_t* _t, ss_plugin_table_field_t* f)
 	{
+		// alloc new table entry
+		// read subtable ptr field (f is the accessor)
+		// cast ptr to base_table
+		// wrap base_table into a sinsp_table_wrapper
+		// add wrapped table to collection of "ephimeral tables"
+		// add new table to collection of "ephimeral entries"
+		// return wrapped table ptr as ss_plugin_table_t
+
 		auto t = static_cast<sinsp_table_wrapper*>(_t);
-		/*if (t->m_table_plugin_input)
+
+		if (t->m_table_plugin_input)
 		{
 			auto pt = t->m_table_plugin_input->table;
 			auto ret = t->m_table_plugin_input->fields_ext->get_subtable(pt, f);
@@ -912,9 +921,25 @@ struct sinsp_table_wrapper
 				t->m_owner_plugin->m_last_owner_err = t->m_table_plugin_owner->get_last_error();
 			}
 			return ret;
-		}*/
+		}
 
-		return t;
+		auto out = new ss_plugin_state_data();
+		
+		auto e = create_table_entry(t);
+		read_entry_field(t, e, f, out);
+
+		#define _X(_type, _dtype) \
+		{ \
+			auto st = static_cast<libsinsp::state::table<_type>*>(out->rawptr); \
+			auto stt = new sinsp_table_wrapper(t->m_owner_plugin, st); \
+			t->m_owner_plugin->m_ephemeral_tables.push_back(stt); \
+			return &t->m_owner_plugin->m_ephemeral_tables.back(); \
+		}
+		__CATCH_ERR_MSG(t->m_owner_plugin->m_last_owner_err, {
+			__PLUGIN_STATETYPE_SWITCH(t->m_key_type);
+		});
+		#undef _X
+		return NULL;
 	}
 
 	static const char* get_name(ss_plugin_table_t* _t)

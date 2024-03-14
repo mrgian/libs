@@ -116,6 +116,7 @@ public:
 		m_table_infos(),
 		m_owned_tables(),
 		m_accessed_tables(),
+		m_ephemeral_tables(),
 		m_async_event_sources(),
 		m_async_event_names(),
 		m_async_evt_handler(nullptr) { }
@@ -258,6 +259,7 @@ private:
 	std::unordered_map<std::string, owned_table_t> m_owned_tables;
 	/* contains tables that the plugin accessed at least once */
 	std::unordered_map<std::string, accessed_table_t> m_accessed_tables;
+	std::vector<sinsp_table_wrapper> m_ephemeral_tables;
 
 	/** Async Events **/
 	std::unordered_set<std::string> m_async_event_sources;

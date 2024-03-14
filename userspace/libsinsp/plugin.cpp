@@ -219,6 +219,8 @@ bool sinsp_plugin::init(const std::string &config, std::string &errstr)
 			m_parse_event_sources, m_parse_event_codes);
 	}
 
+	m_ephemeral_tables.clear();
+
 	return true;
 }
 
@@ -897,7 +899,9 @@ bool sinsp_plugin::extract_fields(sinsp_evt* evt, uint32_t num_fields, ss_plugin
 	in.get_owner_last_error = sinsp_plugin::get_owner_last_error;
 	in.table_reader_ext = &table_reader_ext;
 	sinsp_plugin::table_read_api(in.table_reader, table_reader_ext);
-	return m_handle->api.extract_fields(m_state, &ev, &in) == SS_PLUGIN_SUCCESS;
+	auto res = m_handle->api.extract_fields(m_state, &ev, &in) == SS_PLUGIN_SUCCESS;
+	m_ephemeral_tables.clear();
+	return res;
 }
 
 /** End of Field Extraction CAP **/
@@ -925,9 +929,9 @@ bool sinsp_plugin::parse_event(sinsp_evt* evt) const
 	in.table_writer_ext = &table_writer_ext;
 	sinsp_plugin::table_read_api(in.table_reader, table_reader_ext);
 	sinsp_plugin::table_write_api(in.table_writer, table_writer_ext);
-
-	auto res = m_handle->api.parse_event(m_state, &ev, &in);
-	return res == SS_PLUGIN_SUCCESS;
+	auto res = m_handle->api.parse_event(m_state, &ev, &in) == SS_PLUGIN_SUCCESS;
+	m_ephemeral_tables.clear();
+	return res;
 }
 
 /** End of Event Parsing CAP **/
