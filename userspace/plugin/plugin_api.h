@@ -84,6 +84,11 @@ typedef struct
 	// Returns NULL in case of issues (including when a field is defined multiple
 	// times with different data types).
 	ss_plugin_table_field_t* (*add_table_field)(ss_plugin_table_t* t, const char* name, ss_plugin_state_type data_type);
+	//
+	// TODO(jasondellaluce,mrgian): add docs for this, make it explicit that ptr
+	// is ephimeral and should not be retained
+	// TODO(jasondellaluce,mrgian): figure out a good name and signature
+	ss_plugin_table_t* (*get_subtable)(ss_plugin_table_t* t, ss_plugin_table_field_t* f);
 } ss_plugin_table_fields_vtable_ext;
 
 // Supported by the API but deprecated. Use the extended version ss_plugin_table_reader_vtable_ext instead.

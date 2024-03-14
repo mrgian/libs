@@ -900,6 +900,23 @@ struct sinsp_table_wrapper
 		return NULL;
 	}
 
+	static ss_plugin_table_t* get_subtable(ss_plugin_table_t* _t, ss_plugin_table_field_t* f)
+	{
+		auto t = static_cast<sinsp_table_wrapper*>(_t);
+		/*if (t->m_table_plugin_input)
+		{
+			auto pt = t->m_table_plugin_input->table;
+			auto ret = t->m_table_plugin_input->fields_ext->get_subtable(pt, f);
+			if (ret == NULL)
+			{
+				t->m_owner_plugin->m_last_owner_err = t->m_table_plugin_owner->get_last_error();
+			}
+			return ret;
+		}*/
+
+		return t;
+	}
+
 	static const char* get_name(ss_plugin_table_t* _t)
 	{
 		auto t = static_cast<sinsp_table_wrapper*>(_t);
@@ -1258,6 +1275,12 @@ static ss_plugin_table_field_t* dispatch_add_field(ss_plugin_table_t* _t, const 
 	return t->fields_ext->add_table_field(t->table, name, data_type);
 }
 
+static ss_plugin_table_field_t* dispatch_get_subtable(ss_plugin_table_t* _t, ss_plugin_table_field_t* f)
+{
+	auto t = static_cast<ss_plugin_table_input*>(_t);
+	return t->fields_ext->get_subtable(t, f);
+}
+
 static const char* dispatch_get_name(ss_plugin_table_t* _t)
 {
 	auto t = static_cast<ss_plugin_table_input*>(_t);
@@ -1335,6 +1358,7 @@ void sinsp_plugin::table_field_api(ss_plugin_table_fields_vtable& out, ss_plugin
 	extout.list_table_fields = dispatch_list_fields;
 	extout.add_table_field = dispatch_add_field;
 	extout.get_table_field = dispatch_get_field;
+	extout.get_subtable = dispatch_get_subtable;
 	/* Deprecated */
 	out.list_table_fields = extout.list_table_fields;
 	out.add_table_field = extout.add_table_field;
@@ -1440,6 +1464,7 @@ ss_plugin_table_t* sinsp_plugin::table_api_get_table(ss_plugin_owner_t *o, const
 		res->fields_ext->list_table_fields = sinsp_table_wrapper::list_fields; \
 		res->fields_ext->add_table_field = sinsp_table_wrapper::add_field; \
 		res->fields_ext->get_table_field = sinsp_table_wrapper::get_field; \
+		res->fields_ext->get_subtable = sinsp_table_wrapper::get_subtable; \
 		res->reader.get_table_name = res->reader_ext->get_table_name; \
 		res->reader.get_table_size = res->reader_ext->get_table_size; \
 		res->reader.get_table_entry = res->reader_ext->get_table_entry; \
