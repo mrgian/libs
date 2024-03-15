@@ -5,7 +5,7 @@
 #include <iostream>
 #include <unistd.h>
 
-#include "../libs/userspace/plugin/plugin_api.h"
+#include "../userspace/plugin/plugin_api.h"
 
 
 static constexpr uint16_t PPME_SYSCALL_OPEN_E = 2;
@@ -33,6 +33,7 @@ struct plugin_state
     ss_plugin_log_fn_t log;
     bool once = false;
     uint64_t count = 1000;
+    const ss_plugin_event_parse_input* in;
 };
 
 inline bool evt_type_is_open(uint16_t type)
@@ -97,18 +98,41 @@ ss_plugin_t* plugin_init(const ss_plugin_init_input* in, ss_plugin_rc* rc)
 
     // get accessor for thread table
     ret->thread_table = in->tables->get_table(in->owner, "threads", ss_plugin_state_type::SS_PLUGIN_ST_INT64);
+    if (!ret->thread_table)
+    {
+        printf("null ret->thread_table\n");
+        *rc = SS_PLUGIN_FAILURE;
+        return NULL;
+    }
 
+    // todo key type will be here
+    // todo dynamic fields of subtables
     ret->table_field_fdtable = in->tables->fields_ext->get_table_field(ret->thread_table, "fdtable", ss_plugin_state_type::SS_PLUGIN_ST_RAWPTR);
-    //ret->table_field_comm = in->tables->fields_ext->get_table_field(ret->thread_table, "comm", ss_plugin_state_type::SS_PLUGIN_ST_STRING);
+    if (!ret->table_field_fdtable)
+    {
+        printf("null ret->table_field_fdtable\n");
+        *rc = SS_PLUGIN_FAILURE;
+        return NULL;
+    }
 
     ret->subtable = in->tables->fields_ext->get_subtable(ret->thread_table, ret->table_field_fdtable);
+    if (!ret->subtable)
+    {
+        printf("null ret->subtable\n");
+        *rc = SS_PLUGIN_FAILURE;
+        return NULL;
+    }
 
     std::printf("Thread table addr: %p\n", ret->thread_table);
     std::printf("Sub table addr: %p\n", ret->subtable);
 
     ret->table_field_fdtable_name = in->tables->fields_ext->get_table_field(ret->subtable, "name", ss_plugin_state_type::SS_PLUGIN_ST_STRING);
-
-
+    if (!ret->table_field_fdtable_name)
+    {
+        printf("null ret->table_field_fdtable_name\n");
+        *rc = SS_PLUGIN_FAILURE;
+        return NULL;
+    }
 
     if (!ret->thread_table)
     {
@@ -137,22 +161,38 @@ const char* plugin_get_last_error(ss_plugin_t* s)
 ss_plugin_bool entry_iterator(ss_plugin_table_iterator_state_t* s, ss_plugin_table_entry_t* e)
 {
     plugin_state *ps = (plugin_state *) s;
+    auto* in = ps->in;
 
     if(ps->count == 0)
     {
         return false;
     }
 
-    ps->table_reader->read_entry_field(ps->thread_table, e, ps->table_field_fdtable, &ps->data);
+    auto res = in->table_reader_ext->read_entry_field(ps->thread_table, e, ps->table_field_fdtable, &ps->data);
+    if (res != SS_PLUGIN_SUCCESS)
+    {
+        printf("err in->table_reader_ext->read_entry_field\n");
+        return SS_PLUGIN_FAILURE;
+    }
 
     std::printf("FD table addr for %p :\n", ps->data.rawptr);
 
     ss_plugin_state_data key;
-    key.s64 = 0;
+    key.s64 = 1;
 
-    auto fdinfo = ps->table_reader->get_table_entry(ps->data.rawptr, &key);
+    auto fdinfo = in->table_reader_ext->get_table_entry(ps->data.rawptr, &key);
+    if (fdinfo == NULL)
+    {
+        // printf("err in->table_reader_ext->get_table_entry: %s\n", in->get_owner_last_error(in->owner));
+        return SS_PLUGIN_FAILURE;
+    }
 
-    ps->table_reader->read_entry_field(ps->data.rawptr, fdinfo, ps->table_field_fdtable_name, &ps->data);
+    res = in->table_reader_ext->read_entry_field(ps->data.rawptr, fdinfo, ps->table_field_fdtable_name, &ps->data);
+    if (res != SS_PLUGIN_SUCCESS)
+    {
+        printf("err in->table_reader_ext->read_entry_field (2): %s\n", in->get_owner_last_error(in->owner));
+        return SS_PLUGIN_FAILURE;
+    }
 
     std::printf("name: %s\n", ps->data.str);
 
@@ -169,17 +209,7 @@ ss_plugin_rc plugin_parse_event(ss_plugin_t *s, const ss_plugin_event_input *ev,
         return SS_PLUGIN_SUCCESS;
     }
 
-    //const char* thread_table_name = in->table_reader_ext->get_table_name(ps->thread_table);
-    //uint64_t thread_table_size = in->table_reader_ext->get_table_size(ps->thread_table);
-
-
-    //const char* subtable_name = in->table_reader_ext->get_table_name(ps->subtable);
-    //uint64_t subtable_size = in->table_reader_ext->get_table_size(ps->subtable);
-
-    //std::printf("Thr table name %s\n", thread_table_name);
-    //std::printf("Sub table name %s\n", subtable_name);    
-
-    ps->table_reader = in->table_reader_ext;
+    ps->in = in;
     in->table_reader_ext->iterate_entries(ps->thread_table, &entry_iterator, ps);
 
     ps->once = true;

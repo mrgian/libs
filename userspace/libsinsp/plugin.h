@@ -235,6 +235,22 @@ protected:
 	std::string m_event_source;
 
 private:
+	struct table_field_accessor_wrapper
+	{
+		table_field_accessor_wrapper() = default;
+		~table_field_accessor_wrapper();
+		table_field_accessor_wrapper(const table_field_accessor_wrapper& s) = delete;
+		table_field_accessor_wrapper& operator = (const table_field_accessor_wrapper& s) = delete;
+		table_field_accessor_wrapper(table_field_accessor_wrapper&& s);
+		table_field_accessor_wrapper& operator = (table_field_accessor_wrapper&& s);
+
+		void* accessor = nullptr;
+		bool dynamic = false;
+		ss_plugin_state_type data_type = ss_plugin_state_type::SS_PLUGIN_ST_INT8;
+		// todo: add key type for subtable types
+		// todo: add unique identifier for each table type
+	};
+
 	/* this checks if we already called the init API */
 	bool m_inited;
 	ss_plugin_t* m_state;
@@ -261,6 +277,7 @@ private:
 	std::unordered_map<std::string, owned_table_t> m_owned_tables;
 	/* contains tables that the plugin accessed at least once */
 	std::unordered_map<std::string, accessed_table_t> m_accessed_tables;
+	std::list<table_field_accessor_wrapper> m_accessed_table_fields; // note: list has pointer stability
 	std::vector<accessed_table_t> m_ephemeral_tables;
 	std::vector<std::unique_ptr<libsinsp::state::table_entry>> m_ephemeral_entries;
 

@@ -83,7 +83,7 @@ static inline ss_plugin_state_type typeinfo_to_state_type(const libsinsp::state:
 		case libsinsp::state::typeinfo::index_t::PT_RAWPTR:
 			return ss_plugin_state_type::SS_PLUGIN_ST_RAWPTR;
 		default:
-			throw sinsp_exception("can't convert typeinfo to plugin state type: " + std::string(i.name()));
+			throw sinsp_exception("can't convert typeinfo to plugin state type: " + std::to_string(i.index()));
 	}
 }
 
@@ -676,18 +676,52 @@ template<> void plugin_table_wrapper<void*>::get_key_as_data(void* const& key, s
 	out.rawptr = key;
 }
 
+sinsp_plugin::table_field_accessor_wrapper::~table_field_accessor_wrapper()
+{
+	if (!accessor)
+	{
+		return;
+	}
+	#define _X(_type, _dtype) \
+	{ \
+		if (dynamic) \
+		{ \
+			delete static_cast<libsinsp::state::dynamic_struct::field_accessor<_type>*>(accessor); \
+		} \
+		else \
+		{ \
+			delete static_cast<libsinsp::state::static_struct::field_accessor<_type>*>(accessor); \
+		} \
+		break; \
+	}
+	std::string tmp;
+	__CATCH_ERR_MSG(tmp, {
+		__PLUGIN_STATETYPE_SWITCH(data_type);
+	});
+	#undef _X
+}
+
+sinsp_plugin::table_field_accessor_wrapper::table_field_accessor_wrapper(sinsp_plugin::table_field_accessor_wrapper&& s)
+{
+	this->accessor = s.accessor;
+	this->dynamic = s.dynamic;
+	this->data_type = s.data_type;
+	s.accessor = nullptr;
+}
+
+sinsp_plugin::table_field_accessor_wrapper& sinsp_plugin::table_field_accessor_wrapper::operator=(sinsp_plugin::table_field_accessor_wrapper&& s)
+{
+	this->accessor = s.accessor;
+	this->dynamic = s.dynamic;
+	this->data_type = s.data_type;
+	s.accessor = nullptr;
+	return *this;
+}
+
 // wraps instances of libsinsp::state::table and makes them comply
 // to the plugin API state tables definitions.
 struct sinsp_table_wrapper
 {
-	// wraps a dynamic or a static field accessor and its type
-	struct field_accessor_wrapper
-	{
-		void* accessor;
-		bool dynamic;
-		ss_plugin_state_type data_type;
-	};
-
 	template <typename T>
 	explicit sinsp_table_wrapper(sinsp_plugin* p, libsinsp::state::table<T>* t)
 		: m_owner_plugin(p), m_key_type(typeinfo_to_state_type(t->key_info())),
@@ -711,35 +745,13 @@ struct sinsp_table_wrapper
 	sinsp_table_wrapper& operator = (sinsp_table_wrapper&&) = default;
 	sinsp_table_wrapper(const sinsp_table_wrapper& s) = delete;
 	sinsp_table_wrapper& operator = (const sinsp_table_wrapper& s) = delete;
-	virtual ~sinsp_table_wrapper()
-	{
-		for (auto& acc : m_field_accessors)
-		{
-			#define _X(_type, _dtype) \
-			{ \
-				if (acc.second.dynamic) \
-				{ \
-					delete static_cast<libsinsp::state::dynamic_struct::field_accessor<_type>*>(acc.second.accessor); \
-				} \
-				else \
-				{ \
-					delete static_cast<libsinsp::state::static_struct::field_accessor<_type>*>(acc.second.accessor); \
-				} \
-				break; \
-			}
-			std::string tmp;
-			__CATCH_ERR_MSG(tmp, {
-				__PLUGIN_STATETYPE_SWITCH(acc.second.data_type);
-			});
-			#undef _X
-		}
-	}
+	virtual ~sinsp_table_wrapper() = default;
 
 	sinsp_plugin* m_owner_plugin;
 	ss_plugin_state_type m_key_type;
 	libsinsp::state::base_table* m_table;
 	std::vector<ss_plugin_table_fieldinfo> m_field_list;
-	std::unordered_map<std::string, field_accessor_wrapper> m_field_accessors;
+	std::unordered_map<std::string, sinsp_plugin::table_field_accessor_wrapper*> m_field_accessors;
 	const sinsp_plugin* m_table_plugin_owner;
 	ss_plugin_table_input* m_table_plugin_input;
 
@@ -784,7 +796,6 @@ struct sinsp_table_wrapper
 
 	static ss_plugin_table_field_t* get_field(ss_plugin_table_t* _t, const char* name, ss_plugin_state_type data_type)
 	{
-		printf("get_field: OK0\n");
 		auto t = static_cast<sinsp_table_wrapper*>(_t);
 
 		if (t->m_table_plugin_input)
@@ -798,16 +809,13 @@ struct sinsp_table_wrapper
 			return ret;
 		}
 
-		printf("get_field: t=%p\n", t);
-
 		libsinsp::state::static_struct::field_infos::const_iterator fixed_it;
 		std::unordered_map<std::string, libsinsp::state::dynamic_struct::field_info>::const_iterator dyn_it;
 		__CATCH_ERR_MSG(t->m_owner_plugin->m_last_owner_err, {
 			auto it = t->m_field_accessors.find(name);
 			if (it != t->m_field_accessors.end())
 			{
-				printf("get_field: found field accessor for %s\n", name);
-				return static_cast<ss_plugin_table_field_t*>(&it->second);
+				return static_cast<ss_plugin_table_field_t*>(it->second);
 			}
 
 			fixed_it = t->m_table->static_fields().find(name);
@@ -824,14 +832,14 @@ struct sinsp_table_wrapper
 
 		#define _X(_type, _dtype) \
 		{ \
-			printf("get_field: OK1\n"); \
 			auto acc = fixed_it->second.new_accessor<_type>(); \
-			sinsp_table_wrapper::field_accessor_wrapper acc_wrap; \
+			sinsp_plugin::table_field_accessor_wrapper acc_wrap; \
 			acc_wrap.dynamic = false; \
 			acc_wrap.data_type = data_type; \
 			acc_wrap.accessor = new libsinsp::state::static_struct::field_accessor<_type>(acc); \
-			t->m_field_accessors[name] = acc_wrap; \
-			return &t->m_field_accessors[name]; \
+			t->m_owner_plugin->m_accessed_table_fields.push_back(std::move(acc_wrap)); \
+			t->m_field_accessors[name] = &t->m_owner_plugin->m_accessed_table_fields.back(); \
+			return t->m_field_accessors[name]; \
 		}
 		__CATCH_ERR_MSG(t->m_owner_plugin->m_last_owner_err, {
 			if (fixed_it != t->m_table->static_fields().end())
@@ -847,14 +855,14 @@ struct sinsp_table_wrapper
 
 		#define _X(_type, _dtype) \
 		{ \
-			printf("get_field: OK2\n"); \
 			auto acc = dyn_it->second.new_accessor<_type>(); \
-			sinsp_table_wrapper::field_accessor_wrapper acc_wrap; \
+			sinsp_plugin::table_field_accessor_wrapper acc_wrap; \
 			acc_wrap.dynamic = true; \
 			acc_wrap.data_type = data_type; \
 			acc_wrap.accessor = new libsinsp::state::dynamic_struct::field_accessor<_type>(acc); \
-			t->m_field_accessors[name] = acc_wrap; \
-			return &t->m_field_accessors[name]; \
+			t->m_owner_plugin->m_accessed_table_fields.push_back(std::move(acc_wrap)); \
+			t->m_field_accessors[name] = &t->m_owner_plugin->m_accessed_table_fields.back(); \
+			return t->m_field_accessors[name]; \
 		}
 		__CATCH_ERR_MSG(t->m_owner_plugin->m_last_owner_err, {
 			if (dyn_it != t->m_table->dynamic_fields()->fields().end())
@@ -915,9 +923,8 @@ struct sinsp_table_wrapper
 		// add wrapped table to collection of "ephimeral tables"
 		// add new table to collection of "ephimeral entries"
 		// return wrapped table ptr as ss_plugin_table_t
-
 		auto t = static_cast<sinsp_table_wrapper*>(_t);
-
+		
 		if (t->m_table_plugin_input)
 		{
 			auto pt = t->m_table_plugin_input->table;
@@ -938,7 +945,7 @@ struct sinsp_table_wrapper
 		}
 		auto ee = static_cast<libsinsp::state::table_entry*>(e);
 		t->m_owner_plugin->m_ephemeral_entries.push_back(std::unique_ptr<libsinsp::state::table_entry>(ee));
-
+		
 		// read table field from temporary entry
 		auto out = ss_plugin_state_data{};
 		auto rc = read_entry_field(_t, e, f, &out);
@@ -948,54 +955,7 @@ struct sinsp_table_wrapper
 			return NULL;
 		}
 
-		#define _X(_type, _dtype) \
-		{ \
-			auto st = static_cast<libsinsp::state::table<_type>*>(out.rawptr); \
-			auto state = new sinsp_table_wrapper(t->m_owner_plugin, st); \
-			sinsp_plugin::accessed_table_t res(new ss_plugin_table_input(), sinsp_plugin::accessed_table_input_deleter()); \
-			res->table = static_cast<ss_plugin_table_t*>(state); \
-			res->name = state->m_table->name().c_str(); \
-			res->key_type = state->m_key_type; \
-			res->reader_ext = new ss_plugin_table_reader_vtable_ext(); \
-			res->writer_ext = new ss_plugin_table_writer_vtable_ext(); \
-			res->fields_ext = new ss_plugin_table_fields_vtable_ext(); \
-			res->reader_ext->get_table_name = sinsp_table_wrapper::get_name; \
-			res->reader_ext->get_table_size = sinsp_table_wrapper::get_size; \
-			res->reader_ext->get_table_entry = sinsp_table_wrapper::get_entry; \
-			res->reader_ext->read_entry_field = sinsp_table_wrapper::read_entry_field; \
-			res->reader_ext->release_table_entry = sinsp_table_wrapper::release_table_entry; \
-			res->reader_ext->iterate_entries = sinsp_table_wrapper::iterate_entries; \
-			res->writer_ext->clear_table = sinsp_table_wrapper::clear; \
-			res->writer_ext->erase_table_entry = sinsp_table_wrapper::erase_entry; \
-			res->writer_ext->create_table_entry = sinsp_table_wrapper::create_table_entry; \
-			res->writer_ext->destroy_table_entry = sinsp_table_wrapper::destroy_table_entry; \
-			res->writer_ext->add_table_entry = sinsp_table_wrapper::add_entry; \
-			res->writer_ext->write_entry_field = sinsp_table_wrapper::write_entry_field; \
-			res->fields_ext->list_table_fields = sinsp_table_wrapper::list_fields; \
-			res->fields_ext->add_table_field = sinsp_table_wrapper::add_field; \
-			res->fields_ext->get_table_field = sinsp_table_wrapper::get_field; \
-			res->fields_ext->get_subtable = sinsp_table_wrapper::get_subtable; \
-			res->reader.get_table_name = res->reader_ext->get_table_name; \
-			res->reader.get_table_size = res->reader_ext->get_table_size; \
-			res->reader.get_table_entry = res->reader_ext->get_table_entry; \
-			res->reader.read_entry_field = res->reader_ext->read_entry_field; \
-			res->writer.clear_table = res->writer_ext->clear_table; \
-			res->writer.erase_table_entry = res->writer_ext->erase_table_entry; \
-			res->writer.create_table_entry = res->writer_ext->create_table_entry; \
-			res->writer.destroy_table_entry = res->writer_ext->destroy_table_entry; \
-			res->writer.add_table_entry = res->writer_ext->add_table_entry; \
-			res->writer.write_entry_field = res->writer_ext->write_entry_field; \
-			res->fields.list_table_fields = res->fields_ext->list_table_fields; \
-			res->fields.add_table_field = res->fields_ext->add_table_field; \
-			res->fields.get_table_field = res->fields_ext->get_table_field; \
-			t->m_owner_plugin->m_ephemeral_tables.push_back(std::move(res)); \
-			return t->m_owner_plugin->m_ephemeral_tables.back().get(); \
-		}
-		__CATCH_ERR_MSG(t->m_owner_plugin->m_last_owner_err, {
-			__PLUGIN_STATETYPE_SWITCH(t->m_key_type);
-		});
-		#undef _X
-		return NULL;
+		return out.rawptr;
 	}
 
 	static const char* get_name(ss_plugin_table_t* _t)
@@ -1062,6 +1022,7 @@ struct sinsp_table_wrapper
 			{ \
 				return static_cast<ss_plugin_table_entry_t*>(ret.get()); \
 			} \
+			throw sinsp_exception("get_entry found no element at given key"); \
 			return NULL; \
 		}
 		__CATCH_ERR_MSG(t->m_owner_plugin->m_last_owner_err, {
@@ -1272,8 +1233,10 @@ ss_plugin_rc sinsp_table_wrapper::read_entry_field(ss_plugin_table_t* _t, ss_plu
 		return ret;
 	}
 
-	auto a = static_cast<const sinsp_table_wrapper::field_accessor_wrapper*>(f);
+	auto a = static_cast<const sinsp_plugin::table_field_accessor_wrapper*>(f);
 	auto e = static_cast<libsinsp::state::table_entry*>(_e);
+	auto res = SS_PLUGIN_FAILURE;
+
 	#define _X(_type, _dtype) \
 	{ \
 		if (a->dynamic) \
@@ -1286,13 +1249,62 @@ ss_plugin_rc sinsp_table_wrapper::read_entry_field(ss_plugin_table_t* _t, ss_plu
 			auto aa = static_cast<libsinsp::state::static_struct::field_accessor<_type>*>(a->accessor); \
 			e->get_static_field<_type>(*aa, out->_dtype); \
 		} \
-		return SS_PLUGIN_SUCCESS; \
+		res = SS_PLUGIN_SUCCESS; \
+		break; \
 	}
 	__CATCH_ERR_MSG(t->m_owner_plugin->m_last_owner_err, {
 		__PLUGIN_STATETYPE_SWITCH(a->data_type);
 	});
 	#undef _X
-	return SS_PLUGIN_FAILURE;
+
+	if (a->data_type == ss_plugin_state_type::SS_PLUGIN_ST_RAWPTR)
+	{
+		void* subtable_ptr = out->rawptr;
+
+		// TODO: big problem -- how do we propagate the key type?
+		auto st = static_cast<libsinsp::state::table<int64_t>*>(subtable_ptr);
+		auto state = new sinsp_table_wrapper(t->m_owner_plugin, st);
+		sinsp_plugin::accessed_table_t res(new ss_plugin_table_input(), sinsp_plugin::accessed_table_input_deleter());
+		res->table = static_cast<ss_plugin_table_t*>(state);
+		res->name = state->m_table->name().c_str();
+		res->key_type = state->m_key_type;
+		res->reader_ext = new ss_plugin_table_reader_vtable_ext();
+		res->writer_ext = new ss_plugin_table_writer_vtable_ext();
+		res->fields_ext = new ss_plugin_table_fields_vtable_ext();
+		res->reader_ext->get_table_name = sinsp_table_wrapper::get_name;
+		res->reader_ext->get_table_size = sinsp_table_wrapper::get_size;
+		res->reader_ext->get_table_entry = sinsp_table_wrapper::get_entry;
+		res->reader_ext->read_entry_field = sinsp_table_wrapper::read_entry_field;
+		res->reader_ext->release_table_entry = sinsp_table_wrapper::release_table_entry;
+		res->reader_ext->iterate_entries = sinsp_table_wrapper::iterate_entries;
+		res->writer_ext->clear_table = sinsp_table_wrapper::clear;
+		res->writer_ext->erase_table_entry = sinsp_table_wrapper::erase_entry;
+		res->writer_ext->create_table_entry = sinsp_table_wrapper::create_table_entry;
+		res->writer_ext->destroy_table_entry = sinsp_table_wrapper::destroy_table_entry;
+		res->writer_ext->add_table_entry = sinsp_table_wrapper::add_entry;
+		res->writer_ext->write_entry_field = sinsp_table_wrapper::write_entry_field;
+		res->fields_ext->list_table_fields = sinsp_table_wrapper::list_fields;
+		res->fields_ext->add_table_field = sinsp_table_wrapper::add_field;
+		res->fields_ext->get_table_field = sinsp_table_wrapper::get_field;
+		res->fields_ext->get_subtable = sinsp_table_wrapper::get_subtable;
+		res->reader.get_table_name = res->reader_ext->get_table_name;
+		res->reader.get_table_size = res->reader_ext->get_table_size;
+		res->reader.get_table_entry = res->reader_ext->get_table_entry;
+		res->reader.read_entry_field = res->reader_ext->read_entry_field;
+		res->writer.clear_table = res->writer_ext->clear_table;
+		res->writer.erase_table_entry = res->writer_ext->erase_table_entry;
+		res->writer.create_table_entry = res->writer_ext->create_table_entry;
+		res->writer.destroy_table_entry = res->writer_ext->destroy_table_entry;
+		res->writer.add_table_entry = res->writer_ext->add_table_entry;
+		res->writer.write_entry_field = res->writer_ext->write_entry_field;
+		res->fields.list_table_fields = res->fields_ext->list_table_fields;
+		res->fields.add_table_field = res->fields_ext->add_table_field;
+		res->fields.get_table_field = res->fields_ext->get_table_field;
+		t->m_owner_plugin->m_ephemeral_tables.push_back(std::move(res));
+		out->rawptr = t->m_owner_plugin->m_ephemeral_tables.back().get();
+	}
+
+	return res;
 }
 
 ss_plugin_rc sinsp_table_wrapper::write_entry_field(ss_plugin_table_t* _t, ss_plugin_table_entry_t* _e, const ss_plugin_table_field_t* f, const ss_plugin_state_data* in)
@@ -1310,7 +1322,7 @@ ss_plugin_rc sinsp_table_wrapper::write_entry_field(ss_plugin_table_t* _t, ss_pl
 		return ret;
 	}
 
-	auto a = static_cast<const sinsp_table_wrapper::field_accessor_wrapper*>(f);
+	auto a = static_cast<const sinsp_plugin::table_field_accessor_wrapper*>(f);
 	auto e = static_cast<libsinsp::state::table_entry*>(_e);
 	#define _X(_type, _dtype) \
 	{ \
@@ -1347,7 +1359,6 @@ static const ss_plugin_table_fieldinfo* dispatch_list_fields(ss_plugin_table_t *
 static ss_plugin_table_field_t* dispatch_get_field(ss_plugin_table_t* _t, const char* name, ss_plugin_state_type data_type)
 {
 	auto t = static_cast<ss_plugin_table_input*>(_t);
-	printf("OK4 %p\n", _t);
 	return t->fields_ext->get_table_field(t->table, name, data_type);
 }
 
