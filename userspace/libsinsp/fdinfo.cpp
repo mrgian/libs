@@ -126,7 +126,17 @@ const char* sinsp_fdinfo::get_typestring() const
 sinsp_fdinfo::sinsp_fdinfo(std::shared_ptr<libsinsp::state::dynamic_struct::field_infos> dyn_fields)
 	: table_entry(dyn_fields) 
 {
-	define_static_field(this, m_name, "name");
+	//m_type
+	define_static_field(this, m_openflags, "openflags"); //uint32 
+	//m_sockinfo
+	define_static_field(this, m_name, "name"); //string
+	define_static_field(this, m_name_raw, "nameraw"); //string
+	define_static_field(this, m_oldname, "oldname"); //string
+	define_static_field(this, m_flags, "flags"); //uint32
+	define_static_field(this, m_dev, "dev"); //uint32
+	define_static_field(this, m_mount_id, "mount_id"); //uint32
+	define_static_field(this, m_ino, "ino"); //uint64
+	define_static_field(this, m_pid, "pid"); //int64
 }
 
 std::string sinsp_fdinfo::tostring_clean() const
