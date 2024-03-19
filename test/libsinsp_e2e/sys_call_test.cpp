@@ -1311,3 +1311,105 @@ TEST_F(sys_call_test, unshare_)
 	ASSERT_NO_FATAL_FAILURE({ event_capture::run(test, callback, filter); });
 	EXPECT_EQ(2, callnum);
 }
+
+TEST_F(sys_call_test, poll_timeout)
+{
+	int callnum = 0;
+	event_filter_t filter = [&](sinsp_evt* evt)
+	{ return !strcmp(evt->get_name(), "poll") && m_tid_filter(evt); };
+	run_callback_t test = [](concurrent_object_handle<sinsp> inspector)
+	{
+		struct pollfd ufds[2];
+		ufds[0].fd = 0;
+		ufds[0].events = POLLIN;
+		ufds[1].fd = 1;
+		ufds[1].events = POLLOUT;
+		poll(ufds, 2, 20);
+	};
+	captured_event_callback_t callback = [&](const callback_param& param)
+	{
+		sinsp_evt* e = param.m_evt;
+		uint16_t type = e->get_type();
+
+		if (type == PPME_SYSCALL_POLL_E)
+		{
+			//
+			// stdin and stdout can be a file or a fifo depending
+			// on how the tests are invoked
+			//
+			string fds = e->get_param_value_str("fds");
+			EXPECT_TRUE(fds == "0:f1 1:f4" || fds == "0:p1 1:f4" || fds == "0:f1 1:p4" ||
+			            fds == "0:p1 1:p4")
+			    << "Value of fds is not one of expected values: " << fds;
+			EXPECT_EQ("20", e->get_param_value_str("timeout"));
+			callnum++;
+		}
+		else if (type == PPME_SYSCALL_POLL_X)
+		{
+			int64_t res = stoi(e->get_param_value_str("res"));
+
+			EXPECT_EQ(res, 1);
+
+			string fds = e->get_param_value_str("fds");
+
+			EXPECT_TRUE(fds == "0:f0 1:f4" || fds == "0:p0 1:f4" || fds == "0:f0 1:p4" ||
+						fds == "0:p0 1:p4");
+
+			callnum++;
+		}
+	};
+	ASSERT_NO_FATAL_FAILURE({ event_capture::run(test, callback, filter); });
+	EXPECT_EQ(2, callnum);
+}
+
+TEST_F(sys_call_test, ppoll_timeout)
+{
+	int callnum = 0;
+	int hlp_pid = -1;
+	event_filter_t filter = [&hlp_pid](sinsp_evt* evt)
+	{
+		return (evt->get_type() == PPME_SYSCALL_PPOLL_E ||
+		        evt->get_type() == PPME_SYSCALL_PPOLL_X) &&
+		       evt->get_tid() == hlp_pid;
+	};
+
+	run_callback_t test = [&hlp_pid](concurrent_object_handle<sinsp> inspector)
+	{
+		subprocess handle(LIBSINSP_TEST_PATH "/test_helper", {"ppoll_timeout"});
+		handle.wait();
+		hlp_pid = handle.get_pid();
+	};
+
+	captured_event_callback_t callback = [&](const callback_param& param)
+	{
+		sinsp_evt* e = param.m_evt;
+		uint16_t type = e->get_type();
+
+		if (type == PPME_SYSCALL_PPOLL_E)
+		{
+			//
+			// stdin and stdout can be a file or a fifo depending
+			// on how the tests are invoked
+			//
+			string fds = e->get_param_value_str("fds");
+			EXPECT_TRUE(fds == "3:p1 4:p4" || fds == "4:p1 5:p4");
+			EXPECT_EQ("1000000", e->get_param_value_str("timeout", false));
+			EXPECT_EQ("SIGHUP SIGCHLD", e->get_param_value_str("sigmask", false));
+			callnum++;
+		}
+		else if (type == PPME_SYSCALL_PPOLL_X)
+		{
+			int64_t res = stoi(e->get_param_value_str("res"));
+
+			EXPECT_EQ(res, 1);
+
+			string fds = e->get_param_value_str("fds");
+
+			EXPECT_TRUE(fds == "3:p0 4:p4" || fds == "4:p0 5:p4");
+
+			callnum++;
+		}
+	};
+	ASSERT_NO_FATAL_FAILURE({ event_capture::run(test, callback, filter); });
+	EXPECT_EQ(2, callnum);
+}
