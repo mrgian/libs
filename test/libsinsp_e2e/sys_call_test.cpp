@@ -1398,6 +1398,56 @@ TEST_F(sys_call_test, sendmsg_recvmsg_SCM_RIGHTS)
 	EXPECT_EQ(1, callnum);
 }
 
+TEST_F(sys_call_test, poll_timeout)
+{
+	int callnum = 0;
+	event_filter_t filter = [&](sinsp_evt* evt)
+	{
+		auto ti = evt->get_thread_info(false);
+		return (evt->get_type() == PPME_SYSCALL_POLL_E ||
+		        evt->get_type() == PPME_SYSCALL_POLL_X) &&
+			ti->m_comm == "test_helper";
+	};
+
+	run_callback_t test = [&](concurrent_object_handle<sinsp> inspector)
+	{
+		subprocess handle(LIBSINSP_TEST_PATH "/test_helper", {"poll_timeout"});
+		handle.wait();
+	};
+
+	captured_event_callback_t callback = [&](const callback_param& param)
+	{
+		sinsp_evt* e = param.m_evt;
+		uint16_t type = e->get_type();
+
+		if (type == PPME_SYSCALL_POLL_E)
+		{
+			//
+			// stdin and stdout can be a file or a fifo depending
+			// on how the tests are invoked
+			//
+			string fds = e->get_param_value_str("fds");
+			EXPECT_TRUE(fds == "3:p1 4:p4" || fds == "4:p1 5:p4");
+			EXPECT_EQ("20", e->get_param_value_str("timeout", false));
+			callnum++;
+		}
+		else if (type == PPME_SYSCALL_POLL_X)
+		{
+			int64_t res = stoi(e->get_param_value_str("res"));
+
+			EXPECT_EQ(res, 1);
+
+			string fds = e->get_param_value_str("fds");
+
+			EXPECT_TRUE(fds == "3:p0 4:p4" || fds == "4:p0 5:p4");
+
+			callnum++;
+		}
+	};
+	ASSERT_NO_FATAL_FAILURE({ event_capture::run(test, callback, filter); });
+	EXPECT_EQ(2, callnum);
+}
+
 TEST_F(sys_call_test, ppoll_timeout)
 {
 	int callnum = 0;

@@ -241,6 +241,24 @@ void quotactl_ok(const vector<string>& args)
 	quotactl(QCMD(Q_QUOTAOFF, USRQUOTA), "/dev/loop0", 0, NULL);
 }
 
+void poll_timeout(const vector<string>& args)
+{
+	int my_pipe[2];
+	auto ret = pipe(my_pipe);
+	if (ret != 0)
+	{
+		return;
+	}
+
+	struct pollfd ufds[2];
+	ufds[0].fd = my_pipe[0];
+	ufds[0].events = POLLIN;
+	ufds[1].fd = my_pipe[1];
+	ufds[1].events = POLLOUT;
+
+	poll(ufds, 2, 20);
+}
+
 void ppoll_timeout(const vector<string>& args)
 {
 	int my_pipe[2];
@@ -710,6 +728,7 @@ const unordered_map<string, function<void(const vector<string>&)>> func_map = {
     {"preadv_pwritev", preadv_pwritev},
     {"quotactl_ko", quotactl_ko},
     {"quotactl_ok", quotactl_ok},
+	{"poll_timeout", poll_timeout},
     {"ppoll_timeout", ppoll_timeout},
     {"pgid_test", pgid_test},
     {"custom_container", custom_container},
