@@ -1772,3 +1772,235 @@ TEST_F(sys_call_test32, failing_execve)
 }
 
 #endif
+
+extern "C"
+{
+	int32_t scap_proc_read_thread(struct scap_linux_platform* linux_platform,
+	                              char* procdirname,
+	                              uint64_t tid,
+	                              struct scap_threadinfo* tinfo,
+	                              char* error,
+	                              bool scan_sockets);
+}
+
+extern const struct scap_vtable scap_kmod_engine;
+extern const struct scap_vtable scap_bpf_engine;
+extern const struct scap_vtable scap_modern_bpf_engine;
+
+static scap_t* open_capture(scap_open_args* oargs,
+                            const struct scap_vtable* vtable,
+                            struct scap_platform* platform)
+{
+	auto handle = scap_alloc();
+	if (handle == NULL)
+	{
+		return nullptr;
+	}
+
+	auto rc = scap_init(handle, oargs, vtable);
+	if (rc != SCAP_SUCCESS)
+	{
+		scap_platform_close(platform);
+		scap_platform_free(platform);
+		scap_close(handle);
+		return nullptr;
+	}
+
+	char err_buf[SCAP_LASTERR_SIZE];
+	rc = scap_platform_init(platform, err_buf, handle->m_engine, oargs);
+	if (rc != SCAP_SUCCESS)
+	{
+		scap_platform_close(platform);
+		scap_platform_free(platform);
+		scap_close(handle);
+		return nullptr;
+	}
+
+	return handle;
+}
+
+static void close_capture(scap_t* handle, struct scap_platform* platform)
+{
+	if (platform)
+	{
+		scap_platform_close(platform);
+		scap_platform_free(platform);
+	}
+	if (handle)
+	{
+		scap_close(handle);
+	}
+}
+
+TEST_F(sys_call_test, thread_lookup_static)
+{
+	struct stat s = {};
+	char proc[] = LIBSINSP_TEST_RESOURCES_PATH "/_proc";
+	if (stat(proc, &s) != 0)
+	{
+		fprintf(stderr, "%s not found, skipping test\n", proc);
+		FAIL();
+	}
+
+	char err_buf[SCAP_LASTERR_SIZE];
+
+	scap_modern_bpf_engine_params modern_bpf_params = {};
+	scap_bpf_engine_params bpf_params = {};
+	scap_kmod_engine_params kmod_params = {};
+	const scap_vtable* vtable = nullptr;
+	scap_open_args oargs = {};
+
+	if(event_capture::get_engine() == KMOD_ENGINE)
+	{
+		vtable = &scap_kmod_engine;
+		kmod_params.buffer_bytes_dim = DEFAULT_DRIVER_BUFFER_BYTES_DIM;
+		oargs.engine_params = &kmod_params;
+	} 
+	else if(event_capture::get_engine() == BPF_ENGINE)
+	{
+		vtable = &scap_bpf_engine;
+		bpf_params.buffer_bytes_dim = DEFAULT_DRIVER_BUFFER_BYTES_DIM;
+		oargs.engine_params = &bpf_params;
+	}
+	else if(event_capture::get_engine() == MODERN_BPF_ENGINE)
+	{
+		vtable = &scap_modern_bpf_engine;
+		modern_bpf_params.buffer_bytes_dim = DEFAULT_DRIVER_BUFFER_BYTES_DIM;
+		oargs.engine_params = &modern_bpf_params;
+	}
+
+	struct scap_platform* platform = scap_linux_alloc_platform(nullptr, nullptr);
+	ASSERT_NE(nullptr, platform);
+	auto linux_plat = (struct scap_linux_platform*)platform;
+	//linux_plat->m_linux_vtable = &scap_kmod_linux_vtable;
+
+	scap_t* scap = open_capture(&oargs, vtable, platform);
+	ASSERT_NE(nullptr, scap);
+
+	scap_threadinfo scap_tinfo;
+	ASSERT_EQ(SCAP_SUCCESS,
+	          scap_proc_read_thread(linux_plat, proc, 1, &scap_tinfo, err_buf, false));
+
+	EXPECT_EQ(1, scap_tinfo.tid);
+	EXPECT_EQ(1, scap_tinfo.pid);
+	EXPECT_EQ(1, scap_tinfo.vtid);
+	EXPECT_EQ(0, scap_tinfo.ptid);
+
+	ASSERT_EQ(SCAP_SUCCESS,
+	          scap_proc_read_thread(linux_plat, proc, 62725, &scap_tinfo, err_buf, false));
+	EXPECT_EQ(62725, scap_tinfo.tid);
+	EXPECT_EQ(62725, scap_tinfo.pid);
+	EXPECT_EQ(62725, scap_tinfo.vtid);
+	EXPECT_EQ(1, scap_tinfo.ptid);
+
+	ASSERT_EQ(SCAP_SUCCESS,
+	          scap_proc_read_thread(linux_plat, proc, 62727, &scap_tinfo, err_buf, false));
+	EXPECT_EQ(62727, scap_tinfo.tid);
+	EXPECT_EQ(62725, scap_tinfo.pid);
+	EXPECT_EQ(62727, scap_tinfo.vtid);
+	EXPECT_EQ(1, scap_tinfo.ptid);
+
+	close_capture(scap, platform);
+}
+
+TEST_F(sys_call_test, thread_lookup_live)
+{
+	char err_buf[SCAP_LASTERR_SIZE];
+
+	scap_modern_bpf_engine_params modern_bpf_params = {};
+	scap_bpf_engine_params bpf_params = {};
+	scap_kmod_engine_params kmod_params = {};
+	const scap_vtable* vtable = nullptr;
+	scap_open_args oargs = {};
+	oargs.import_users = false;
+
+	if(event_capture::get_engine() == KMOD_ENGINE)
+	{
+		vtable = &scap_kmod_engine;
+		kmod_params.buffer_bytes_dim = DEFAULT_DRIVER_BUFFER_BYTES_DIM;
+		oargs.engine_params = &kmod_params;
+	} 
+	else if(event_capture::get_engine() == BPF_ENGINE)
+	{
+		vtable = &scap_bpf_engine;
+		bpf_params.buffer_bytes_dim = DEFAULT_DRIVER_BUFFER_BYTES_DIM;
+		oargs.engine_params = &bpf_params;
+	}
+	else if(event_capture::get_engine() == MODERN_BPF_ENGINE)
+	{
+		vtable = &scap_modern_bpf_engine;
+		modern_bpf_params.buffer_bytes_dim = DEFAULT_DRIVER_BUFFER_BYTES_DIM;
+		oargs.engine_params = &modern_bpf_params;
+	}
+
+	struct scap_platform* platform = scap_linux_alloc_platform(nullptr, nullptr);
+	ASSERT_NE(nullptr, platform);
+	auto linux_plat = (struct scap_linux_platform*)platform;
+
+	scap_t* scap = open_capture(&oargs, vtable, platform);
+	ASSERT_NE(nullptr, scap);
+
+	scap_threadinfo scap_tinfo;
+	char proc[] = "/proc";
+
+	std::unordered_set<int64_t> seen_tids;
+
+	event_filter_t filter = [&](sinsp_evt* evt)
+	{ return evt->get_type() != PPME_PROCEXIT_1_E && evt->get_tid() > 0; };
+	run_callback_t test = [&](concurrent_object_handle<sinsp> inspector)
+	{
+		// a very short sleep to gather some events,
+		// we'll take much longer than this to process them all
+		usleep(1000);
+	};
+	captured_event_callback_t callback = [&](const callback_param& param)
+	{
+		sinsp_evt* e = param.m_evt;
+		auto tid = e->get_tid();
+		if (!seen_tids.insert(tid).second)
+		{
+			return;
+		}
+		fprintf(stderr, "looking up tid %ld in /proc\n", tid);
+		// In some cases scap_proc_read_thread can return SCAP_SUCCESS without
+		// filling in scap_tinfo
+		if (scap_proc_read_thread(linux_plat, proc, tid, &scap_tinfo, err_buf, false) ==
+		    SCAP_SUCCESS)
+		{
+			auto tinfo = e->get_thread_info(false);
+			if (!tinfo)
+			{
+				return;
+			}
+			EXPECT_NE(0, scap_tinfo.tid);
+			EXPECT_NE(0, scap_tinfo.pid);
+			EXPECT_NE(0, scap_tinfo.vtid);
+			EXPECT_EQ(tinfo->m_tid, scap_tinfo.tid);
+			EXPECT_EQ(tinfo->m_pid, scap_tinfo.pid);
+			EXPECT_EQ(tinfo->m_vtid, scap_tinfo.vtid);
+			// Not testing scap_tinfo.ptid because it can change in between event and lookup
+		}
+	};
+	before_close_t before_close = [&](sinsp* inspector)
+	{
+		// close scap to maintain the num_consumers at exit == 0 assertion
+		close_capture(scap, platform);
+	};
+
+	ASSERT_EQ(SCAP_SUCCESS,
+	          scap_proc_read_thread(linux_plat, proc, getpid(), &scap_tinfo, err_buf, false));
+	EXPECT_EQ(getpid(), scap_tinfo.tid);
+	EXPECT_EQ(getpid(), scap_tinfo.pid);
+	EXPECT_EQ(getpid(), scap_tinfo.vtid);
+	EXPECT_EQ(getppid(), scap_tinfo.ptid);
+
+	ASSERT_EQ(SCAP_SUCCESS,
+	          scap_proc_read_thread(linux_plat, proc, 1, &scap_tinfo, err_buf, false));
+	EXPECT_EQ(1, scap_tinfo.tid);
+	EXPECT_EQ(1, scap_tinfo.pid);
+	EXPECT_EQ(1, scap_tinfo.vtid);
+	EXPECT_EQ(0, scap_tinfo.ptid);
+
+	ASSERT_NO_FATAL_FAILURE(
+	    { event_capture::run(test, callback, filter, event_capture::do_nothing, before_close); });
+}

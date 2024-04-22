@@ -103,3 +103,8 @@ file(COPY
     DESTINATION
     ${CMAKE_CURRENT_BINARY_DIR}/resources/
 )
+
+execute_process(
+    COMMAND tar xzf ${CMAKE_CURRENT_BINARY_DIR}/resources/fake-proc.tar.gz
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/resources/
+)
