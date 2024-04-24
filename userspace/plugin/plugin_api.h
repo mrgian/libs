@@ -948,6 +948,7 @@ typedef struct
 		ss_plugin_rc (*set_async_event_handler)(ss_plugin_t* s, ss_plugin_owner_t* owner, const ss_plugin_async_event_handler_t handler);
 	};
 
+	//
 	// Sets a new plugin configuration when provided by the framework.
 	// Required: no
 	// Arguments:
@@ -958,6 +959,17 @@ typedef struct
 	// or SS_PLUGIN_FAILURE if the config is rejected.
 	// If rejected the plugin should provide context in the string returned by get_last_error().
 	ss_plugin_rc (*set_config)(ss_plugin_t* s, const ss_plugin_set_config_input* i);
+	
+	//
+	// Return an updated list of metrics related to the this plugin
+	// Required: no
+	// Arguments:
+	// - s: the plugin state, returned by init(). Can be NULL.
+	// - num_metrics: lenght of the returned metrics list.
+	//
+	// Return value: A pointer to the first element of the list.
+	// 'num_metrics' must be set to the current lenght of the list before returning.
+	ss_plugin_metric* (*get_metrics)(ss_plugin_t* s, uint32_t* num_metrics);
 } plugin_api;
 
 #ifdef __cplusplus

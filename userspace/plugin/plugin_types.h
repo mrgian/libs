@@ -293,6 +293,48 @@ typedef enum ss_plugin_log_severity
 	SS_PLUGIN_LOG_SEV_TRACE = 8,
 } ss_plugin_log_severity;
 
+//Data representation of the plugin metric value.
+typedef union ss_plugin_metric_value 
+{
+	uint32_t u32;
+	int32_t s32;
+	uint64_t u64;
+	int64_t s64;
+	double d;
+	float f;
+	int i;
+} ss_plugin_metric_value;
+
+// Plugin metric data type
+typedef enum ss_plugin_metric_value_type
+{
+	SS_PLUGIN_METRIC_VALUE_TYPE_U32 = 1,
+	SS_PLUGIN_METRIC_VALUE_TYPE_S32 = 2,
+	SS_PLUGIN_METRIC_VALUE_TYPE_U64 = 3,
+	SS_PLUGIN_METRIC_VALUE_TYPE_S64 = 4,
+	SS_PLUGIN_METRIC_VALUE_TYPE_D = 5,
+	SS_PLUGIN_METRIC_VALUE_TYPE_F = 6,
+	SS_PLUGIN_METRIC_VALUE_TYPE_I = 7,
+} ss_plugin_metric_value_type;
+
+// Plugin metric value type
+typedef enum ss_plugin_metric_type
+{
+	SS_PLUGIN_METRIC_TYPE_MONOTONIC = 1,
+	SS_PLUGIN_METRIC_TYPE_NON_MONOTONIC = 2,
+} ss_plugin_metric_type;
+
+//
+// This struct represents a plugin metric that can be provided to the plugin framework.
+//
+typedef struct ss_plugin_metric
+{
+	const char* name;
+	ss_plugin_metric_type type;
+	ss_plugin_metric_value value;
+	ss_plugin_metric_value_type value_type;
+} ss_plugin_metric;
+
 #ifdef __cplusplus
 }
 #endif
