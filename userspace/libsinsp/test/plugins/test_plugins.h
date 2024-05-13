@@ -26,3 +26,4 @@ void get_plugin_api_sample_syscall_async(plugin_api& out);
 void get_plugin_api_sample_plugin_source(plugin_api& out);
 void get_plugin_api_sample_plugin_extract(plugin_api& out);
 void get_plugin_api_sample_tables(plugin_api& out);
+void get_plugin_api_sample_metrics(plugin_api& out);
