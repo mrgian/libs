@@ -130,6 +130,8 @@ sinsp::sinsp(bool static_container, const std::string &static_id, const std::str
 	// create state tables registry
 	m_table_registry = std::make_shared<libsinsp::state::table_registry>();
 	m_table_registry->add_table(m_thread_manager.get());
+
+	m_thread_pool = std::make_shared<bs_thread_pool>();
 }
 
 sinsp::~sinsp()
@@ -390,6 +392,12 @@ void sinsp::open_common(scap_open_args* oargs, const scap_vtable* vtable, scap_p
 				}
 			}
 		}
+	}
+
+	// notify registred plugins of capture open
+	for (auto& p : m_plugin_manager->plugins())
+	{
+		p->capture_open();
 	}
 }
 
@@ -781,6 +789,15 @@ void sinsp::close()
 			throw sinsp_exception(err);
 		}
 	}
+
+	// notify registred plugins of capture close
+	for (auto& p : m_plugin_manager->plugins())
+	{
+		p->capture_close();
+	}
+
+	// purge pending routines and wait for the running ones
+	m_thread_pool->purge();
 
 	m_mode = SINSP_MODE_NONE;
 }
@@ -1521,7 +1538,7 @@ void sinsp::set_statsd_port(const uint16_t port)
 std::shared_ptr<sinsp_plugin> sinsp::register_plugin(const std::string& filepath)
 {
 	std::string errstr;
-	std::shared_ptr<sinsp_plugin> plugin = sinsp_plugin::create(filepath, m_table_registry, errstr);
+	std::shared_ptr<sinsp_plugin> plugin = sinsp_plugin::create(filepath, m_table_registry, m_thread_pool, errstr);
 	if (!plugin)
 	{
 		throw sinsp_exception("cannot load plugin " + filepath + ": " + errstr.c_str());
@@ -1546,7 +1563,7 @@ std::shared_ptr<sinsp_plugin> sinsp::register_plugin(const std::string& filepath
 std::shared_ptr<sinsp_plugin> sinsp::register_plugin(const plugin_api* api)
 {
 	std::string errstr;
-	std::shared_ptr<sinsp_plugin> plugin = sinsp_plugin::create(api, m_table_registry, errstr);
+	std::shared_ptr<sinsp_plugin> plugin = sinsp_plugin::create(api, m_table_registry, m_thread_pool, errstr);
 	if (!plugin)
 	{
 		throw sinsp_exception("cannot load plugin with custom vtable: " + errstr);

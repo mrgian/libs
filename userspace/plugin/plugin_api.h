@@ -388,6 +388,32 @@ typedef struct ss_plugin_set_config_input
 } ss_plugin_set_config_input;
 
 //
+//
+typedef void ss_plugin_routine_t;
+
+//
+//
+typedef void ss_plugin_routine_state_t;
+
+//
+//
+typedef ss_plugin_bool (*ss_plugin_routine_fn_t)(ss_plugin_t* s, ss_plugin_routine_state_t* i);
+
+//
+//
+typedef struct
+{
+	//
+	//
+	ss_plugin_routine_t* (*subscribe)(ss_plugin_owner_t* o, ss_plugin_routine_fn_t f, ss_plugin_routine_state_t* i);
+
+	//
+	//
+	void (*unsubscribe)(ss_plugin_owner_t* o, ss_plugin_routine_t* r);
+} ss_plugin_routine_vtable;
+
+
+//
 // Function handler used by plugin for sending asynchronous events to the
 // Falcosecurity libs during a live event capture. The asynchronous events
 // must be encoded as an async event type (code 402) as for the libscap specific.
@@ -977,6 +1003,14 @@ typedef struct
 	// 'num_metrics' must be set to the lenght of the array before returning
 	// and it can be set to 0 if no metrics are provided.
 	ss_plugin_metric* (*get_metrics)(ss_plugin_t* s, uint32_t* num_metrics);
+
+	//
+	// Called by the framework when the event capture opens
+	void (*capture_open)(ss_plugin_t* s, ss_plugin_routine_vtable r);
+
+	//
+	// Called by the framework when the event capture closes
+	void (*capture_close)(ss_plugin_t* s, ss_plugin_routine_vtable r);
 } plugin_api;
 
 #ifdef __cplusplus

@@ -1216,6 +1216,7 @@ public:
 	std::unique_ptr<sinsp_filter> m_filter;
 	std::string m_filterstring;
 	std::shared_ptr<libsinsp::filter::ast::expr> m_internal_flt_ast;
+	std::shared_ptr<thread_pool> m_thread_pool;
 
 	//
 	// Saved snaplen
