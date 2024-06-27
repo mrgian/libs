@@ -785,13 +785,14 @@ std::string sinsp_evt::get_base_dir(uint32_t id, sinsp_threadinfo *tinfo)
 	const ppm_param_info* param_info = &m_info->params[id];
 
 	// If it's a regular FSPATH, just return the thread's CWD
-	if (param_info->type != PT_FSRELPATH)
+	if (param_info->type != PT_FSRELPATH && param_info->type != PT_FSLINKPATH)
 	{
 		ASSERT(param_info->type == PT_FSPATH);
 		return cwd;
 	}
 
 	uint64_t dirfd_id = (uint64_t)param_info->info;
+
 	if (dirfd_id >= m_info->nparams)
 	{
 		ASSERT(dirfd_id < m_info->nparams);
@@ -822,6 +823,33 @@ std::string sinsp_evt::get_base_dir(uint32_t id, sinsp_threadinfo *tinfo)
 	}
 	sanitize_string(rel_path_base);
 	rel_path_base.append("/");
+
+	if (param_info->type != PT_FSLINKPATH)
+	{
+		return rel_path_base;
+	}
+
+	uint64_t linkpath_id = (uint64_t)(param_info->info + 1);
+
+	if (linkpath_id >= m_info->nparams)
+	{
+		ASSERT(linkpath_id < m_info->nparams);
+		return cwd;
+	}
+		
+	const ppm_param_info* linkpath_param_info = &(m_info->params[linkpath_id]);
+	// Ensure the index points to an actual FSRELPATH
+	if (linkpath_param_info->type != PT_FSRELPATH)
+	{
+		return rel_path_base;
+	}
+
+	std::string_view linkpath = get_param(linkpath_id)->as<std::string_view>();
+
+	rel_path_base.append(std::filesystem::path(linkpath).parent_path().filename());
+	sanitize_string(rel_path_base);
+	rel_path_base.append("/");
+
 	return rel_path_base;
 }
 
@@ -1017,6 +1045,7 @@ const char* sinsp_evt::get_param_as_str(uint32_t id, const char** resolved_str, 
 		break;
 	case PT_FSPATH:
 	case PT_FSRELPATH:
+	case PT_FSLINKPATH:
 	{
 		std::string_view path = param->as<std::string_view>();
 		if(path.length() + 1 > m_paramstr_storage.size())

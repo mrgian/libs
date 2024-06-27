@@ -2071,7 +2071,8 @@ enum ppm_param_type {
 	PT_ENUMFLAGS8 = 44, /* this is an UINT8, but will be interpreted as an enum flag, ie: contiguous values flag. */
 	PT_ENUMFLAGS16 = 45, /* this is an UINT16, but will be interpreted as an enum flag, ie: contiguous values flag. */
 	PT_ENUMFLAGS32 = 46, /* this is an UINT32, but will be interpreted as an enum flag, ie: contiguous values flag. */
-	PT_MAX = 47 /* array size */
+	PT_FSLINKPATH = 47,
+	PT_MAX = 48 /* array size */
 };
 
 enum ppm_print_format {
@@ -2093,6 +2094,8 @@ struct ppm_name_value {
 };
 
 #define DIRFD_PARAM(_param_num) ((void*)_param_num)
+
+#define LINKPATH_PARAM(_param_num) ((void*)_param_num)
 
 /*!
   \brief Event parameter information.
