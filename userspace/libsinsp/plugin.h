@@ -173,8 +173,8 @@ public:
 	std::vector<metrics_v2> get_metrics() const;
 	void capture_open();
 	void capture_close();
-	int subscribe_routine(ss_plugin_routine_fn_t routine_fn, ss_plugin_routine_state_t* routine_state);
-	void unsubscribe_routine(int routine_id);
+	thread_pool::routine_id_t subscribe_routine(ss_plugin_routine_fn_t routine_fn, ss_plugin_routine_state_t* routine_state);
+	void unsubscribe_routine(thread_pool::routine_id_t routine_id);
 
 	/** Event Sourcing **/
 	inline uint32_t id() const

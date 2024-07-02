@@ -826,14 +826,16 @@ std::vector<metrics_v2> sinsp_plugin::get_metrics() const
 	return metrics;
 }
 
-int sinsp_plugin::subscribe_routine(ss_plugin_routine_fn_t routine_fn, ss_plugin_routine_state_t* routine_state)
+thread_pool::routine_id_t sinsp_plugin::subscribe_routine(ss_plugin_routine_fn_t routine_fn, ss_plugin_routine_state_t* routine_state)
 {
-	routine r(routine_fn, m_state, routine_state);
+	auto f = [this, routine_fn, routine_state]() -> bool {
+		return static_cast<bool>(routine_fn(m_state, routine_state));
+	};
 
-	return (int)m_thread_pool->subscribe(r);
+	return m_thread_pool->subscribe(f);
 }
 
-void sinsp_plugin::unsubscribe_routine(int routine_id)
+void sinsp_plugin::unsubscribe_routine(thread_pool::routine_id_t routine_id)
 {
 	m_thread_pool->unsubscribe(routine_id);
 }
@@ -841,15 +843,15 @@ void sinsp_plugin::unsubscribe_routine(int routine_id)
 ss_plugin_routine_t* plugin_subscribe_routine(ss_plugin_owner_t* o, ss_plugin_routine_fn_t r, ss_plugin_routine_state_t* s)
 {
 	auto t = static_cast<sinsp_plugin*>(o);
-	int32_t res = t->subscribe_routine(r, s);
+	auto res = t->subscribe_routine(r, s);
 
-	return (ss_plugin_routine_t*)res;
+	return static_cast<ss_plugin_routine_t*>(res);
 }
 
 void plugin_unsubscribe_routine(ss_plugin_owner_t* o, ss_plugin_routine_t* r)
 {
 	auto t = static_cast<sinsp_plugin*>(o);
-	auto id = (intptr_t)r;
+	auto id = static_cast<thread_pool::routine_id_t>(r);
 
 	t->unsubscribe_routine(id);
 }

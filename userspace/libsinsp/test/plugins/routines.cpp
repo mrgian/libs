@@ -99,6 +99,8 @@ static const char* plugin_get_last_error(ss_plugin_t* s)
 static ss_plugin_bool test_routine(ss_plugin_t *s, ss_plugin_routine_state_t *i)
 {
     bool flag = *(bool*)i;
+
+    std::fprintf(stderr, "Flag: %d\n", flag);
     
     //this routine keeps running while flag is true
     return flag;

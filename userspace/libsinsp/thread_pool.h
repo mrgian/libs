@@ -1,16 +1,19 @@
 #include <list>
 #include <cstdint>
+#include <cstddef>
+#include <functional>
+#include <memory>
 
 class thread_pool
 {
 public:
-	using routine_id_t = uintptr_t;
-
-	struct routine_info
+	/*struct routine_info
 	{
 		std::function<bool()> func;
 		bool alive = false;
-	};
+	};*/
+
+	using routine_id_t = std::function<bool()>*;
 
 	//
 	//
@@ -22,7 +25,8 @@ public:
 
 	//
 	//
-	virtual routine_id_t subscribe(const routine_info& r) = 0;
+	//virtual routine_id_t subscribe(const routine_info& r) = 0;
+	virtual routine_id_t subscribe(const std::function<bool()>& f) = 0;
 
 	//
 	//
@@ -51,7 +55,7 @@ public:
 		purge();
 	}
 
-	thread_pool::routine_id_t subscribe(const thread_pool::routine_info& r);
+	thread_pool::routine_id_t subscribe(const std::function<bool()>& f);
 
 	void unsubscribe(thread_pool::routine_id_t id);
 
@@ -62,8 +66,8 @@ public:
 private:
 	struct default_bs_tp_deleter { void operator()(BS::thread_pool* __ptr) const; };
 
-	void run_routine(std::shared_ptr<thread_pool::routine_info> id);
+	void run_routine(std::shared_ptr<std::function<bool()>> id);
 
 	std::unique_ptr<BS::thread_pool, default_bs_tp_deleter> m_pool;
-	std::list<std::shared_ptr<thread_pool::routine_info>> m_routines;
+	std::list<std::shared_ptr<std::function<bool()>>> m_routines;
 };
