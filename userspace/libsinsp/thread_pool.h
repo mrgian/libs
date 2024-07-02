@@ -1,69 +1,17 @@
-#include "BS_thread_pool.hpp"
-#include <iostream>
-#include <unistd.h>
-#include <chrono>
-#include <utility>
-
-#include <plugin/plugin_api.h>
-
-#define THREAD_POOL_SIZE 0
-#define THREAD_POOL_TIMEOUT 1500
-
-class routine
-{
-public:
-	routine(ss_plugin_routine_fn_t func, ss_plugin_t* plugin_state, ss_plugin_routine_state_t* routine_state) 
-	{
-        run = [func, plugin_state, routine_state]() -> bool { 
-			return func(plugin_state, routine_state);
-		};
-    }
-
-	routine(std::function<bool()> func) 
-	{
-		run = func;
-    }
-
-    std::function<bool()> run;
-
-	int set_id(int i)
-	{
-		if(i >= 0)
-		{
-			id = i;
-		}
-
-		return id;
-	}
-
-	int get_id()
-	{
-		return id;
-	}	
-
-	void enable()
-	{
-		enabled = true;
-	}
-
-	void disable()
-	{
-		enabled = false;
-	}
-
-	bool is_enabled()
-	{
-		return enabled;
-	}
-
-private:
-	int id = -1;
-	bool enabled = false;
-};
+#include <list>
+#include <cstdint>
 
 class thread_pool
 {
 public:
+	using routine_id_t = uintptr_t;
+
+	struct routine_info
+	{
+		std::function<bool()> func;
+		bool alive = false;
+	};
+
 	//
 	//
 	thread_pool() = default;
@@ -74,11 +22,11 @@ public:
 
 	//
 	//
-	virtual int subscribe(routine r) = 0;
+	virtual routine_id_t subscribe(const routine_info& r) = 0;
 
 	//
 	//
-	virtual void unsubscribe(int id) = 0;
+	virtual void unsubscribe(routine_id_t id) = 0;
 
 	//
 	//
@@ -86,31 +34,36 @@ public:
 
 	//
 	//
-	virtual int routines_num() = 0;
+	virtual size_t routines_num() = 0;
+};
+
+namespace BS {
+	class thread_pool;
 };
 
 class bs_thread_pool : public thread_pool
 {
 public:
-	bs_thread_pool() = default;
-	~bs_thread_pool()
+	bs_thread_pool(size_t num_workers = 0);
+
+	virtual ~bs_thread_pool()
 	{
 		purge();
 	}
 
-	int subscribe(routine r);
+	thread_pool::routine_id_t subscribe(const thread_pool::routine_info& r);
 
-	void unsubscribe(int id);
+	void unsubscribe(thread_pool::routine_id_t id);
 
     void purge();
 
-	int routines_num();
+	size_t routines_num();
 
 private:
-	bool is_subscribed(int id);
+	struct default_bs_tp_deleter { void operator()(BS::thread_pool* __ptr) const; };
 
-	void run_routine(int id);
+	void run_routine(std::shared_ptr<thread_pool::routine_info> id);
 
-	std::unique_ptr<BS::thread_pool> pool;
-	std::vector<routine> routines;
+	std::unique_ptr<BS::thread_pool, default_bs_tp_deleter> m_pool;
+	std::list<std::shared_ptr<thread_pool::routine_info>> m_routines;
 };

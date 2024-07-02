@@ -1,93 +1,61 @@
 #include <libsinsp/thread_pool.h>
 
-int bs_thread_pool::subscribe(routine r)
+#include <BS_thread_pool.hpp>
+
+void bs_thread_pool::default_bs_tp_deleter::operator()(BS::thread_pool* __ptr) const
 {
-	if(!pool)
-	{
-#if THREAD_POOL_SIZE == 0
-		pool = std::make_unique<BS::thread_pool>();
-#else
-		pool = std::make_unique<BS::thread_pool>(THREAD_POOL_SIZE);
-#endif
-	}
-
-	r.enable();
-	int id = r.set_id(routines.size());
-
-	routines.push_back(r);
-	run_routine(id);
-
-	return id;
+	std::default_delete<BS::thread_pool>{}(__ptr);
 }
 
-void bs_thread_pool::unsubscribe(int id)
+void bs_thread_pool::bs_thread_pool(size_t num_workers): m_pool(nullptr), m_routines()
 {
-	if(is_subscribed(id) && id >= 0)
+	if (num_workers == 0)
 	{
-		routines.at(id).disable();
+		pool = std::make_unique<BS::thread_pool>();
 	}
+	else
+	{
+		pool = std::make_unique<BS::thread_pool>(num_workers);
+	}
+}
+
+bs_thread_pool::routine_id_t bs_thread_pool::subscribe(const bs_thread_pool::rountine_info& r)
+{
+	routines.push_back(std::make_shared<thread_pool::routine_info>(r));
+	auto& new_routine = routines.back();
+	run_routine(new_routine);
+	return static_cast<bs_thread_pool::routine_id_t>(new_routine.get());
+}
+
+void bs_thread_pool::unsubscribe(bs_thread_pool::routine_id_t id)
+{
+	routines.remove_if([id](const shared_ptr<thread_pool::routine_info>& v)
+		{
+			return v.get() == static_cast<thread_pool::routine_info*>(id);
+		});
 }
 
 void bs_thread_pool::purge()
 {
-	for(auto& r : routines)
-	{
-		r.disable();
-	}
-
-	if(pool)
-	{
-		pool->purge();
-		pool->wait();
-	}	
+	routines.clear();
+	pool->purge();
+	pool->wait();
 }
 
-int bs_thread_pool::routines_num()
+size_t bs_thread_pool::routines_num()
 {
-	int num = 0;
-
-	for(auto& r : routines)
-	{
-		if(r.is_enabled())
-		{
-			num++;
-		}
-	}
-
-	return num;
+	return routines.size();
 }
 
-bool bs_thread_pool::is_subscribed(int id)
+void bs_thread_pool::run_routine(std::shared_ptr<thread_pool::routine_info> routine)
 {
-	if(id < 0)
-	{
-		return false;
-	}
-
-	return routines.at(id).is_enabled();
-}
-
-void bs_thread_pool::run_routine(int id)
-{
-	if(id < 0)
-	{
-		return;
-	}
-
-	pool->detach_task([this, id]{
-		bool ret = routines.at(id).run();
-
-		if(!ret)
+	pool->detach_task([this, routine]
 		{
-			unsubscribe(id);
-			return;
-		}
+			if (routine.use_count() <= 1 || !(routine->func && routine->func()))
+			{
+				return;
+			}
 
-		if(is_subscribed(id))
-		{
-			pool->detach_task([this, id]{
-				run_routine(id);
-			});
-		}
-	});		
+			run_routine(routine);
+		});
 }
